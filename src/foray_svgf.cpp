@@ -3,22 +3,19 @@
 namespace foray::svgf {
     void SvgfDenoiserStage::Init(core::Context* context, const stages::DenoiserConfig& config)
     {
-        mAlbedoInput = config.AlbedoInput;
-        Assert(!!mAlbedoInput);
-        mNormalInput = config.NormalInput;
-        Assert(!!mNormalInput);
-        mMotionInput = config.MotionInput;
-        Assert(!!mMotionInput);
+        mInputs.AlbedoInput = config.GBufferOutputs[(size_t)stages::GBufferStage::EOutput::Albedo];
+        Assert(!!mInputs.AlbedoInput);
+        mInputs.NormalInput = config.GBufferOutputs[(size_t)stages::GBufferStage::EOutput::Normal];
+        Assert(!!mInputs.NormalInput);
+        mInputs.MotionInput = config.GBufferOutputs[(size_t)stages::GBufferStage::EOutput::Motion];
+        Assert(!!mInputs.MotionInput);
+        mInputs.PrimaryInput = config.PrimaryInput;
+        Assert(!!mInputs.PrimaryInput);
         mPrimaryOutput = config.PrimaryOutput;
         Assert(!!mPrimaryOutput);
 
-        auto iter = config.AuxiliaryInputs.find(INPUT_DIRECT);
-        Assert(iter != config.AuxiliaryInputs.end());
-        mDirectLightInput = iter->second;
-
-        iter = config.AuxiliaryInputs.find(INPUT_INDIRECT);
-        Assert(iter != config.AuxiliaryInputs.end());
-        mIndirectLightInput = iter->second;
+        // Noise Source Inputs
+        // 
     }
 
     void SvgfDenoiserStage::DisplayImguiConfiguration() {}

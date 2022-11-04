@@ -12,22 +12,30 @@ namespace foray::svgf {
     {
       public:
         virtual void                    Init(core::Context* context, const stages::DenoiserConfig& config) override;
-        inline static const std::string INPUT_DIRECT   = "Direct";
-        inline static const std::string INPUT_INDIRECT = "Indirect";
 
-        virtual std::string GetUILabel() { return "ASVGF Denoiser"; }
+        virtual std::string GetUILabel() override { return "ASVGF Denoiser"; }
 
-        virtual void DisplayImguiConfiguration();
+        virtual void DisplayImguiConfiguration() override;
 
-        virtual void IgnoreHistoryNextFrame();
+        virtual void IgnoreHistoryNextFrame() override;
 
       protected:
-        core::ManagedImage*        mDirectLightInput   = nullptr;
-        core::ManagedImage*        mIndirectLightInput = nullptr;
-        core::ManagedImage*        mAlbedoInput        = nullptr;
-        core::ManagedImage*        mNormalInput        = nullptr;
-        core::ManagedImage*        mMotionInput        = nullptr;
+
+        struct {
+          core::ManagedImage* PrimaryInput;
+          core::ManagedImage* AlbedoInput;
+          core::ManagedImage* NormalInput;
+          core::ManagedImage* LinearZInput;
+          core::ManagedImage* MotionInput;
+          core::ManagedImage* MeshInstanceIdxInput;
+        } mInputs;
+
+        struct {
+
+        } mASvgfImages;
+
         core::ManagedImage*        mPrimaryOutput      = nullptr;
+
         CreateGradientSamplesStage mCreateGradientSamplesStage;
         ATrousGradientStage        mAtrousGradientStage;
         TemporalAccumulationStage  mTemporalAccumulationStage;
