@@ -9,7 +9,7 @@ layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 //Inputs
 layout(rgba32f, binding = 0) uniform readonly image2D PrimaryInput;
 
-layout(r16ui, binding = 1) uniform uimage2D Seed;
+layout(r16ui, binding = 1) uniform uimage2D Seed; //ReadWrite access
 
 layout(rgba32f, binding = 2) uniform readonly image2D HistoryPrimaryInput;
 
@@ -22,42 +22,62 @@ layout(r32ui, binding = 5) uniform readonly uimage2D NoiseTexture;
 //Outputs
 layout(rg32f, binding = 6) uniform writeonly image2D LuminanceMaxDiff;
 
-layout(rgba32f, binding = 7) uniform writeonly image2D MomentsLinZ;
+layout(rgba32f, binding = 7) uniform writeonly image2D MomentsAndLinearZ;
 
 layout(push_constant) uniform push_constant_t
 {
     uint FrameIdx;
 } PushC;
 
+const int STRATASIZE = 3;
 const uint TILEMASK = (1 << 3) - 1;
+const uint TILEMASK2 = (1 << 6) - 1;
+
+ivec2 CalculateTilePos(in uint seed)
+{
+	return ivec2((seed & TILEMASK), (seed >> STRATASIZE) & TILEMASK) % STRATASIZE;
+}
 
 void main()
 {
+	// Position of the current strata
     const ivec2 strataPos = ivec2(gl_GlobalInvocationID.xy);
 
-    uint seed = imageLoad(Seed, strataPos).x;
+	const ivec2 texSize = imageSize(LuminanceMaxDiff);
 
-    {
-        //Generate Seed Value
-        uint newseed = imageLoad(NoiseTexture, strataPos).x + PushC.FrameIdx;
-        seed = (seed << 6) | (newseed & ((1 << 6) - 1));
+	if (strataPos.x >= texSize.x || strataPos.y >= texSize.y)
+	{
+		return;
+	}
+
+    uint seed;
+
+    { // Generate new Seed Value
+		const uint noiseLoadIdx = strataPos.y * imageSize(LuminanceMaxDiff).x + strataPos.x + PushC.FrameIdx;
+		const uvec2 noiseTexSize = imageSize(NoiseTexture);
+		const ivec2 noiseLoadPos = ivec2((noiseLoadIdx / noiseTexSize.x) % noiseTexSize.y, noiseLoadIdx % noiseTexSize.x);
+		uint newSeed = imageLoad(NoiseTexture, noiseLoadPos).x;
+
+        uint oldSeed = imageLoad(Seed, strataPos).x;
+
+        seed = (oldSeed << STRATASIZE * 2) | (newSeed & TILEMASK2);
+		imageStore(Seed, strataPos, uvec4(seed));
     }
 
     // Position inside the 3x3 tile
-	ivec2 tilePos = ivec2((seed & TILEMASK), (seed >> 3) & TILEMASK) % 3;
+	ivec2 tilePos = CalculateTilePos(seed);
 
-    ivec2 texelPos = strataPos * 3 + tilePos;
+	// Read position
+    ivec2 texelPos = strataPos * STRATASIZE + tilePos;
 
     // current frame luminance
     float luminance = calcLuminance(imageLoad(PrimaryInput, texelPos).rgb);
 
-    {
-        uint oldSeed = (seed >> 6);
-
+    { // Write Luminance Max + Diff texture
         // Position inside the 3x3 tile
-	    ivec2 tilePos = ivec2((oldSeed & TILEMASK), (oldSeed >> 3) & TILEMASK) % 3;
+	    ivec2 tilePos = CalculateTilePos(seed >> STRATASIZE * 2);
 
-        ivec2 texelPos = strataPos * 3 + tilePos;
+        ivec2 texelPos = strataPos * STRATASIZE + tilePos;
 
         // previous frame luminance
         float prevLuminance = calcLuminance(imageLoad(HistoryPrimaryInput, texelPos).rgb);
@@ -67,42 +87,51 @@ void main()
         imageStore(LuminanceMaxDiff, strataPos, vec4(maxLuminance, luminance - prevLuminance, 0.0, 0.0));
     }
 
-    vec2 moments = vec2(luminance, luminance * luminance);
-	// Weight
-	float sum_w = 1.0;
-	// Linear Z
-	vec2 linearZ = imageLoad(GbufferLinearZ, texelPos).rg;
-	// Mesh Id
-	uint mesh_id  = imageLoad(GbufferMeshInstanceIdx, texelPos).x;
+	// A moment contains luminance + luminance^2 
+	vec2 avgMoment;
 
-    int gradientDownsample = 3;
-    // For a 3x3 kernel (Current Tile)
-    for(int yy = 0; yy < gradientDownsample; yy++) {
-	    for(int xx = 0; xx < gradientDownsample; xx++) {
-			// Current position in kernel
-			ivec2 samplePos = strataPos * gradientDownsample + ivec2(xx, yy);
-			// If not the already looked at position
-			if(texelPos != samplePos) {
-				// Get noisy color
-				vec3 rgb = imageLoad(PrimaryInput, samplePos).rgb;
-				// Get Mesh id
-				uint mesh_id_samplePos = imageLoad(GbufferMeshInstanceIdx, samplePos).x;
-				float l = calcLuminance(rgb);
-				// Weight 1 only if same mesh
-				float w = mesh_id_samplePos == mesh_id ? 1.0 : 0.0;
-				// sum up moments
-				moments += vec2(l, l * l) * w;
-				// sum up weights
-				sum_w += w;
+	{ // Calculate average strata moment
+		
+		// We sum all moments from the strata to calculate an average
+    	vec2 momentsSum = vec2(luminance, luminance * luminance);
+		// Sum of all weights used in the kernel
+		float weightSum = 1.0;
+		// Mesh Id
+		uint strataMeshId  = imageLoad(GbufferMeshInstanceIdx, texelPos).x;
+
+    	// For a 3x3 kernel (Current Tile)
+    	for(int yy = 0; yy < STRATASIZE; yy++) {
+		    for(int xx = 0; xx < STRATASIZE; xx++) {
+				// Current position in kernel
+				ivec2 samplePos = strataPos * STRATASIZE + ivec2(xx, yy);
+				// If not the already looked at position
+				if(texelPos != samplePos) {
+					// Get Mesh id
+					uint sampleMeshIdx = imageLoad(GbufferMeshInstanceIdx, samplePos).x;
+					float sampleLuminance = calcLuminance(imageLoad(PrimaryInput, samplePos).rgb);
+					// Weight 1 only if same mesh
+					float w = sampleMeshIdx == strataMeshId ? 1.0 : 0.0;
+					// sum up moments
+					momentsSum += vec2(sampleLuminance, sampleLuminance * sampleLuminance) * w;
+					// sum up weights
+					weightSum += w;
+				}
 			}
 		}
+
+    	// divide by weights: momentsSum is now an average of vec2[luminance, luminance^2] for the current tile
+		avgMoment = momentsSum / weightSum;
 	}
 
-    // divide by weights: moments is now an average of vec2[luminance, luminance^2] for the current tile
-	moments /= sum_w;
+	{ // Store Moment + LinearZ into combo texture
+	
+		// Calculate variance across the tile. Single high values compared to average equals higher variance.
+		float variance = max(0.0, avgMoment.y - avgMoment.x * avgMoment.x);
 
-	// Calculate variance across the tile. Single high values compared to average equals higher variance.
-	float variance = max(0.0, moments.y - moments.x * moments.x);
+		// Linear Z is passed through into MomentsAndLinearZ texture
+		vec2 linearZ = imageLoad(GbufferLinearZ, texelPos).rg;
 
-	imageStore(MomentsLinZ, strataPos, vec4(moments.x, variance, linearZ.x, linearZ.y));
+		// Store Moment + LinearZ combo texture
+		imageStore(MomentsAndLinearZ, strataPos, vec4(avgMoment.x, variance, linearZ.x, linearZ.y));
+	}
 }

@@ -10,8 +10,10 @@
 namespace foray::asvgf {
     class ASvgfDenoiserStage : public foray::stages::DenoiserStage
     {
+        friend CreateGradientSamplesStage;
+
       public:
-        virtual void                    Init(core::Context* context, const stages::DenoiserConfig& config) override;
+        virtual void Init(core::Context* context, const stages::DenoiserConfig& config) override;
 
         virtual std::string GetUILabel() override { return "ASVGF Denoiser"; }
 
@@ -20,21 +22,33 @@ namespace foray::asvgf {
         virtual void IgnoreHistoryNextFrame() override;
 
       protected:
-
-        struct {
-          core::ManagedImage* PrimaryInput;
-          core::ManagedImage* AlbedoInput;
-          core::ManagedImage* NormalInput;
-          core::ManagedImage* LinearZInput;
-          core::ManagedImage* MotionInput;
-          core::ManagedImage* MeshInstanceIdxInput;
+        struct
+        {
+            core::ManagedImage* PrimaryInput         = nullptr;
+            core::ManagedImage* AlbedoInput          = nullptr;
+            core::ManagedImage* NormalInput          = nullptr;
+            core::ManagedImage* LinearZInput         = nullptr;
+            core::ManagedImage* MotionInput          = nullptr;
+            core::ManagedImage* MeshInstanceIdxInput = nullptr;
+            core::ManagedImage* NoiseTexture         = nullptr;
         } mInputs;
 
-        struct {
-
+        struct
+        {
+            core::ManagedImage* LuminanceMaxDiff  = nullptr;
+            core::ManagedImage* MomentsAndLinearZ = nullptr;
+            core::ManagedImage* Seed = nullptr;
         } mASvgfImages;
 
-        core::ManagedImage*        mPrimaryOutput      = nullptr;
+        struct
+        {
+            core::ManagedImage* PrimaryInput    = nullptr;
+            core::ManagedImage* LinearZ         = nullptr;
+            core::ManagedImage* MeshInstanceIdx = nullptr;
+            core::ManagedImage* Normals         = nullptr;
+        } mHistoryImages;
+
+        core::ManagedImage* mPrimaryOutput = nullptr;
 
         CreateGradientSamplesStage mCreateGradientSamplesStage;
         ATrousGradientStage        mAtrousGradientStage;

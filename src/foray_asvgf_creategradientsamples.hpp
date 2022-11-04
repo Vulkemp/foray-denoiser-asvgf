@@ -3,17 +3,15 @@
 #include <stages/foray_computestage.hpp>
 
 namespace foray::asvgf {
+    class ASvgfDenoiserStage;
+
     class CreateGradientSamplesStage : public foray::stages::ComputeStage
     {
         public:
-            void Init(core::ManagedImage* primaryInput, core::ManagedImage* seedTexture, core::ManagedImage* historyPrimaryInput, core::ManagedImage* gbufferLinearZ, core::ManagedImage* gbufferMeshInstanceIdx);
+            void Init(ASvgfDenoiserStage* aSvgfStage);
             
         protected:
-        core::ManagedImage* mPrimaryInput = nullptr;
-        core::ManagedImage* mSeedTexture = nullptr;
-        core::ManagedImage* mHistoryPrimaryInput = nullptr;
-        core::ManagedImage* mGbufferLinearZ = nullptr;
-        core::ManagedImage* mGbufferMeshInstanceIdx = nullptr;
+        ASvgfDenoiserStage* mASvgfStage = nullptr;
 
         virtual void ApiInitShader() override;
         virtual void ApiCreateDescriptorSetLayout() override;
