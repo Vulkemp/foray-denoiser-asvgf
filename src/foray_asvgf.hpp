@@ -15,6 +15,8 @@ namespace foray::asvgf {
       public:
         virtual void Init(core::Context* context, const stages::DenoiserConfig& config) override;
 
+        virtual void RecordFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo) override;
+
         virtual std::string GetUILabel() override { return "ASVGF Denoiser"; }
 
         virtual void DisplayImguiConfiguration() override;
