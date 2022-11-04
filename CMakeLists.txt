@@ -33,5 +33,6 @@ target_include_directories(
 	PUBLIC "${CMAKE_SOURCE_DIR}/foray/src"
 	PUBLIC "${CMAKE_SOURCE_DIR}/foray/third_party"
 	PUBLIC ${Vulkan_INCLUDE_DIRS}
-	
 )
+
+target_compile_options(${PROJECT_NAME} PUBLIC "-DSHADER_DIR=\"${CMAKE_CURRENT_LIST_DIR}/src/shaders\"")
