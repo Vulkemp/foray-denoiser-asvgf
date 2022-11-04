@@ -57,5 +57,7 @@ namespace foray::asvgf {
         TemporalAccumulationStage  mTemporalAccumulationStage;
         EstimateVarianceStage      mEstimateVarianceStage;
         ATrousStage                mAtrousStage;
+
+        void CopyToHistory(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo);
     };
 }  // namespace foray::asvgf
