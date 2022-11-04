@@ -2,8 +2,8 @@
 
 #include <stages/foray_computestage.hpp>
 
-namespace foray::svgf {
+namespace foray::asvgf {
     class ATrousStage : public foray::stages::ComputeStage
     {
     };
-}  // namespace foray::svgf
+}  // namespace foray::asvgf

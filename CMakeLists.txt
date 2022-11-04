@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 
-project("foray-denoiser-svgf")
+project("foray-denoiser-asvgf")
 
 MESSAGE("--- << CMAKE of ${PROJECT_NAME} >> --- ")
 MESSAGE(STATUS "CURRENT SOURCE DIR \"${CMAKE_CURRENT_SOURCE_DIR}\"")#

@@ -1,0 +1,1 @@
+#include "foray_asvgf_temporalaccumulation.hpp"

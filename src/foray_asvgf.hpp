@@ -1,14 +1,14 @@
 #pragma once
 
-#include "foray_svgf_atrous.hpp"
-#include "foray_svgf_atrousgradient.hpp"
-#include "foray_svgf_creategradientsamples.hpp"
-#include "foray_svgf_estimatevariance.hpp"
-#include "foray_svgf_temporalaccumulation.hpp"
+#include "foray_asvgf_atrous.hpp"
+#include "foray_asvgf_atrousgradient.hpp"
+#include "foray_asvgf_creategradientsamples.hpp"
+#include "foray_asvgf_estimatevariance.hpp"
+#include "foray_asvgf_temporalaccumulation.hpp"
 #include <stages/foray_denoiserstage.hpp>
 
-namespace foray::svgf {
-    class SvgfDenoiserStage : public foray::stages::DenoiserStage
+namespace foray::asvgf {
+    class ASvgfDenoiserStage : public foray::stages::DenoiserStage
     {
       public:
         virtual void                    Init(core::Context* context, const stages::DenoiserConfig& config) override;
@@ -42,4 +42,4 @@ namespace foray::svgf {
         EstimateVarianceStage      mEstimateVarianceStage;
         ATrousStage                mAtrousStage;
     };
-}  // namespace foray::svgf
+}  // namespace foray::asvgf

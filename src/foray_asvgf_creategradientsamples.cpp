@@ -1,6 +1,6 @@
-#include "foray_svgf_creategradientsamples.hpp"
+#include "foray_asvgf_creategradientsamples.hpp"
 
-namespace foray::svgf {
+namespace foray::asvgf {
     void CreateGradientSamplesStage::Init(core::ManagedImage* primaryInput,
                                           core::ManagedImage* seedTexture,
                                           core::ManagedImage* historyPrimaryInput,
@@ -23,4 +23,4 @@ namespace foray::svgf {
     void CreateGradientSamplesStage::ApiCreatePipelineLayout(){}
     void CreateGradientSamplesStage::ApiBeforeFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo){}
     void CreateGradientSamplesStage::ApiBeforeDispatch(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo, glm::uvec3& groupSize){}
-}  // namespace foray::svgf
+}  // namespace foray::asvgf

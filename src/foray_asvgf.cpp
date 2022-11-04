@@ -1,7 +1,7 @@
-#include "foray_svgf.hpp"
+#include "foray_asvgf.hpp"
 
-namespace foray::svgf {
-    void SvgfDenoiserStage::Init(core::Context* context, const stages::DenoiserConfig& config)
+namespace foray::asvgf {
+    void ASvgfDenoiserStage::Init(core::Context* context, const stages::DenoiserConfig& config)
     {
         mInputs.AlbedoInput = config.GBufferOutputs[(size_t)stages::GBufferStage::EOutput::Albedo];
         Assert(!!mInputs.AlbedoInput);
@@ -18,8 +18,8 @@ namespace foray::svgf {
         // 
     }
 
-    void SvgfDenoiserStage::DisplayImguiConfiguration() {}
+    void ASvgfDenoiserStage::DisplayImguiConfiguration() {}
 
-    void SvgfDenoiserStage::IgnoreHistoryNextFrame() {}
+    void ASvgfDenoiserStage::IgnoreHistoryNextFrame() {}
 
-}  // namespace foray::svgf
+}  // namespace foray::asvgf

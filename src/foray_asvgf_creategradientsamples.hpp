@@ -2,7 +2,7 @@
 
 #include <stages/foray_computestage.hpp>
 
-namespace foray::svgf {
+namespace foray::asvgf {
     class CreateGradientSamplesStage : public foray::stages::ComputeStage
     {
         public:
@@ -21,4 +21,4 @@ namespace foray::svgf {
         virtual void ApiBeforeFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo) override;
         virtual void ApiBeforeDispatch(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo, glm::uvec3& groupSize) override;
     };
-}  // namespace foray::svgf
+}  // namespace foray::asvgf
