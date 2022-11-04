@@ -25,27 +25,27 @@ namespace foray::asvgf {
         struct
         {
             core::ManagedImage* PrimaryInput         = nullptr;
-            core::ManagedImage* AlbedoInput          = nullptr;
-            core::ManagedImage* NormalInput          = nullptr;
-            core::ManagedImage* LinearZInput         = nullptr;
-            core::ManagedImage* MotionInput          = nullptr;
-            core::ManagedImage* MeshInstanceIdxInput = nullptr;
+            core::ManagedImage* Albedo          = nullptr;
+            core::ManagedImage* Normal          = nullptr;
+            core::ManagedImage* LinearZ         = nullptr;
+            core::ManagedImage* Motion          = nullptr;
+            core::ManagedImage* MeshInstanceIdx = nullptr;
             core::ManagedImage* NoiseTexture         = nullptr;
         } mInputs;
 
         struct
         {
-            core::ManagedImage* LuminanceMaxDiff  = nullptr;
-            core::ManagedImage* MomentsAndLinearZ = nullptr;
-            core::ManagedImage* Seed = nullptr;
+            core::ManagedImage LuminanceMaxDiff;
+            core::ManagedImage MomentsAndLinearZ;
+            core::ManagedImage Seed;
         } mASvgfImages;
 
         struct
         {
-            core::ManagedImage* PrimaryInput    = nullptr;
-            core::ManagedImage* LinearZ         = nullptr;
-            core::ManagedImage* MeshInstanceIdx = nullptr;
-            core::ManagedImage* Normals         = nullptr;
+            core::ManagedImage PrimaryInput;
+            core::ManagedImage LinearZ;
+            core::ManagedImage MeshInstanceIdx;
+            core::ManagedImage Normal;
         } mHistoryImages;
 
         core::ManagedImage* mPrimaryOutput = nullptr;

@@ -21,9 +21,9 @@ namespace foray::asvgf {
                                        VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
         mDescriptorSet.SetDescriptorAt(2, mASvgfStage->mHistoryImages.PrimaryInput, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr,
                                        VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
-        mDescriptorSet.SetDescriptorAt(3, mASvgfStage->mInputs.LinearZInput, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        mDescriptorSet.SetDescriptorAt(3, mASvgfStage->mInputs.LinearZ, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                                        VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
-        mDescriptorSet.SetDescriptorAt(4, mASvgfStage->mInputs.MeshInstanceIdxInput, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr,
+        mDescriptorSet.SetDescriptorAt(4, mASvgfStage->mInputs.MeshInstanceIdx, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr,
                                        VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
         mDescriptorSet.SetDescriptorAt(5, mASvgfStage->mInputs.NoiseTexture, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                                        VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
@@ -44,8 +44,8 @@ namespace foray::asvgf {
         std::vector<VkImageMemoryBarrier2> vkBarriers;
 
         {  // Read Only Images
-            std::vector<core::ManagedImage*> readOnlyImages{mASvgfStage->mInputs.PrimaryInput, mASvgfStage->mHistoryImages.PrimaryInput, mASvgfStage->mInputs.LinearZInput,
-                                                            mASvgfStage->mInputs.MeshInstanceIdxInput, mASvgfStage->mInputs.NoiseTexture};
+            std::vector<core::ManagedImage*> readOnlyImages{mASvgfStage->mInputs.PrimaryInput, &(mASvgfStage->mHistoryImages.PrimaryInput), mASvgfStage->mInputs.LinearZ,
+                                                            mASvgfStage->mInputs.MeshInstanceIdx, mASvgfStage->mInputs.NoiseTexture};
 
             for(core::ManagedImage* image : readOnlyImages)
             {
@@ -60,7 +60,7 @@ namespace foray::asvgf {
             }
         }
         {  // Write (+Read) Images
-            std::vector<core::ManagedImage*> images{mASvgfStage->mASvgfImages.Seed, mASvgfStage->mASvgfImages.LuminanceMaxDiff, mASvgfStage->mASvgfImages.MomentsAndLinearZ};
+            std::vector<core::ManagedImage*> images{&(mASvgfStage->mASvgfImages.Seed), &(mASvgfStage->mASvgfImages.LuminanceMaxDiff), &(mASvgfStage->mASvgfImages.MomentsAndLinearZ)};
 
             for(core::ManagedImage* image : images)
             {
@@ -85,7 +85,7 @@ namespace foray::asvgf {
         uint32_t frameIdx = (uint32_t)renderInfo.GetFrameNumber();
         vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(frameIdx), &frameIdx);
 
-        VkExtent3D size = mASvgfStage->mASvgfImages.LuminanceMaxDiff->GetExtent3D();
+        VkExtent3D size = mASvgfStage->mASvgfImages.LuminanceMaxDiff.GetExtent3D();
 
         glm::uvec2 localSize(16, 16);
         glm::uvec2 strataFrameSize(size.width, size.height);
