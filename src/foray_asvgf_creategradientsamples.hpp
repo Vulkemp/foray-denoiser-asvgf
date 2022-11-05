@@ -10,6 +10,7 @@ namespace foray::asvgf {
         public:
             void Init(ASvgfDenoiserStage* aSvgfStage);
             
+            void UpdateDescriptorSet();
         protected:
         ASvgfDenoiserStage* mASvgfStage = nullptr;
 

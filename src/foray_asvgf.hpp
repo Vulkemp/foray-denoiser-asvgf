@@ -23,16 +23,20 @@ namespace foray::asvgf {
 
         virtual void IgnoreHistoryNextFrame() override;
 
+        virtual void OnResized(const VkExtent2D& extent) override;
+
+        virtual void Destroy() override;
+
       protected:
         struct
         {
-            core::ManagedImage* PrimaryInput         = nullptr;
+            core::ManagedImage* PrimaryInput    = nullptr;
             core::ManagedImage* Albedo          = nullptr;
             core::ManagedImage* Normal          = nullptr;
             core::ManagedImage* LinearZ         = nullptr;
             core::ManagedImage* Motion          = nullptr;
             core::ManagedImage* MeshInstanceIdx = nullptr;
-            core::ManagedImage* NoiseTexture         = nullptr;
+            core::ManagedImage* NoiseTexture    = nullptr;
         } mInputs;
 
         struct
@@ -57,6 +61,8 @@ namespace foray::asvgf {
         TemporalAccumulationStage  mTemporalAccumulationStage;
         EstimateVarianceStage      mEstimateVarianceStage;
         ATrousStage                mAtrousStage;
+
+        VkExtent2D CalculateStrataCount(const VkExtent2D& extent);
 
         void CopyToHistory(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo);
     };

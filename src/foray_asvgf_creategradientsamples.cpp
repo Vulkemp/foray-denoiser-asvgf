@@ -15,6 +15,10 @@ namespace foray::asvgf {
     }
     void CreateGradientSamplesStage::ApiCreateDescriptorSetLayout()
     {
+        UpdateDescriptorSet();
+    }
+    void CreateGradientSamplesStage::UpdateDescriptorSet()
+    {
         mDescriptorSet.SetDescriptorAt(0, mASvgfStage->mInputs.PrimaryInput, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                                        VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
         mDescriptorSet.SetDescriptorAt(1, mASvgfStage->mASvgfImages.Seed, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -23,15 +27,22 @@ namespace foray::asvgf {
                                        VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
         mDescriptorSet.SetDescriptorAt(3, mASvgfStage->mInputs.LinearZ, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                                        VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
-        mDescriptorSet.SetDescriptorAt(4, mASvgfStage->mInputs.MeshInstanceIdx, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr,
-                                       VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
+        mDescriptorSet.SetDescriptorAt(4, mASvgfStage->mInputs.MeshInstanceIdx, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                                       VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
         mDescriptorSet.SetDescriptorAt(5, mASvgfStage->mInputs.NoiseTexture, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                                        VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
         mDescriptorSet.SetDescriptorAt(6, mASvgfStage->mASvgfImages.LuminanceMaxDiff, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr,
                                        VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
         mDescriptorSet.SetDescriptorAt(7, mASvgfStage->mASvgfImages.MomentsAndLinearZ, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr,
                                        VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
-        mDescriptorSet.Create(mContext, "ASvgf.CreateGradientSamples");
+        if(mDescriptorSet.Exists())
+        {
+            mDescriptorSet.Update();
+        }
+        else
+        {
+            mDescriptorSet.Create(mContext, "ASvgf.CreateGradientSamples");
+        }
     }
     void CreateGradientSamplesStage::ApiCreatePipelineLayout()
     {
@@ -60,7 +71,8 @@ namespace foray::asvgf {
             }
         }
         {  // Write (+Read) Images
-            std::vector<core::ManagedImage*> images{&(mASvgfStage->mASvgfImages.Seed), &(mASvgfStage->mASvgfImages.LuminanceMaxDiff), &(mASvgfStage->mASvgfImages.MomentsAndLinearZ)};
+            std::vector<core::ManagedImage*> images{&(mASvgfStage->mASvgfImages.Seed), &(mASvgfStage->mASvgfImages.LuminanceMaxDiff),
+                                                    &(mASvgfStage->mASvgfImages.MomentsAndLinearZ)};
 
             for(core::ManagedImage* image : images)
             {
@@ -80,7 +92,7 @@ namespace foray::asvgf {
 
         vkCmdPipelineBarrier2(cmdBuffer, &depInfo);
     }
-    void CreateGradientSamplesStage::ApiBeforeDispatch(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo, glm::uvec3& groupSize) 
+    void CreateGradientSamplesStage::ApiBeforeDispatch(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo, glm::uvec3& groupSize)
     {
         uint32_t frameIdx = (uint32_t)renderInfo.GetFrameNumber();
         vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(frameIdx), &frameIdx);
