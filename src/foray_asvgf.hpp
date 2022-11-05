@@ -6,6 +6,7 @@
 #include "foray_asvgf_estimatevariance.hpp"
 #include "foray_asvgf_temporalaccumulation.hpp"
 #include <stages/foray_denoiserstage.hpp>
+#include <util/foray_historyimage.hpp>
 
 namespace foray::asvgf {
     class ASvgfDenoiserStage : public foray::stages::DenoiserStage
@@ -48,10 +49,10 @@ namespace foray::asvgf {
 
         struct
         {
-            core::ManagedImage PrimaryInput;
-            core::ManagedImage LinearZ;
-            core::ManagedImage MeshInstanceIdx;
-            core::ManagedImage Normal;
+            util::HistoryImage PrimaryInput;
+            util::HistoryImage LinearZ;
+            util::HistoryImage MeshInstanceIdx;
+            util::HistoryImage Normal;
         } mHistoryImages;
 
         core::ManagedImage* mPrimaryOutput = nullptr;

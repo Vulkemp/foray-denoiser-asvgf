@@ -55,8 +55,8 @@ namespace foray::asvgf {
         std::vector<VkImageMemoryBarrier2> vkBarriers;
 
         {  // Read Only Images
-            std::vector<core::ManagedImage*> readOnlyImages{mASvgfStage->mInputs.PrimaryInput, &(mASvgfStage->mHistoryImages.PrimaryInput), mASvgfStage->mInputs.LinearZ,
-                                                            mASvgfStage->mInputs.MeshInstanceIdx, mASvgfStage->mInputs.NoiseTexture};
+            std::vector<core::ManagedImage*> readOnlyImages({mASvgfStage->mInputs.PrimaryInput, &(mASvgfStage->mHistoryImages.PrimaryInput.GetHistoryImage()), mASvgfStage->mInputs.LinearZ,
+                                                            mASvgfStage->mInputs.MeshInstanceIdx, mASvgfStage->mInputs.NoiseTexture});
 
             for(core::ManagedImage* image : readOnlyImages)
             {
