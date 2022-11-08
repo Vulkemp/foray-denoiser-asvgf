@@ -8,9 +8,9 @@
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 //Inputs / Outputs
-layout(rg32f, binding = 0) uniform restrict coherent image2DArray LuminanceMaxDiff;
+layout(rg32f, binding = 0) uniform image2DArray LuminanceMaxDiff;
 
-layout(rgba32f, binding = 1) uniform restrict coherent image2DArray MomentsAndLinearZ;
+layout(rgba32f, binding = 1) uniform image2DArray MomentsAndLinearZ;
 
 // Texture read array index
 uint ReadIndex;
@@ -22,6 +22,7 @@ layout(push_constant) uniform push_constant_t
     uint IterationCount;
 } PushC;
 
+#if 0
 
 // Information about the center (reference) pixel
 struct RefPixelInfo
@@ -142,9 +143,11 @@ void aTrousIteration (uint iteration){
 
     if (texelPos == imageSize(LuminanceMaxDiff).xy / 2)
     {
-        debugPrintfEXT("Iteration: %u ReadIdx: %u WriteIdx: %u \n", iteration, ReadIndex, WriteIndex);
-        debugPrintfEXT("LuminanceMaxDiff: %v2f \n", luminanceMaxDiff);
-        debugPrintfEXT("MomentsAndLinearZ: %v4f \n", momentsAndLinearZ);
+        ivec3 readPos = ivec3(texelPos, ReadIndex);
+        ivec3 writePos = ivec3(texelPos, WriteIndex);
+        debugPrintfEXT("%u ReadPos: (%v3u) WritePos: (%v3u) \n", PushC.Iteration, readPos, writePos);
+        debugPrintfEXT("%u LuminanceMaxDiff: (%v2f) \n", PushC.Iteration, luminanceMaxDiff);
+        debugPrintfEXT("%u MomentsAndLinearZ: (%v4f) \n", PushC.Iteration, momentsAndLinearZ);
     }
 
     Sums sums;
@@ -173,6 +176,7 @@ void main() {
     for (uint i = 0; i < PushC.IterationCount; i++) {
         // In all but the very last iteration, wait for an image memory barrier
 
+        barrier();
         memoryBarrier();
 
         // Calculate atrous iteration
@@ -182,5 +186,22 @@ void main() {
     }
 }
 
+#endif
 
+void main() {
+    ivec2 texelPos = ivec2(gl_GlobalInvocationID.xy);
+    ivec3 readPos = ivec3(texelPos, 0);
+    ivec3 writePos = ivec3(texelPos, 1);
 
+    vec2 luminanceMaxDiff = imageLoad(LuminanceMaxDiff, readPos).rg;
+    vec4 momentsAndLinearZ = imageLoad(MomentsAndLinearZ, readPos);
+    imageStore(LuminanceMaxDiff, writePos, vec4(luminanceMaxDiff * 1.2, 0, 0));
+    imageStore(MomentsAndLinearZ, writePos, momentsAndLinearZ * 1.2);
+
+    if (texelPos == imageSize(LuminanceMaxDiff).xy / 2)
+    {
+        debugPrintfEXT("ReadPos: (%v3u) WritePos: (%v3u) \n", readPos, writePos);
+        debugPrintfEXT("LuminanceMaxDiff: (%v2f) \n", luminanceMaxDiff);
+        debugPrintfEXT("MomentsAndLinearZ: (%v4f) \n", momentsAndLinearZ);
+    }
+}
