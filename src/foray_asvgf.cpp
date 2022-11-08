@@ -33,12 +33,14 @@ namespace foray::asvgf {
             core::ManagedImage::CreateInfo ci(usageFlags, VkFormat::VK_FORMAT_R32G32_SFLOAT, strataCount, "ASvgf.LuminanceMaxDiff");
             ci.ImageCI.arrayLayers = 2;
             ci.ImageViewCI.viewType = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+            ci.ImageViewCI.subresourceRange.layerCount = 2U;
             mASvgfImages.LuminanceMaxDiff.Create(mContext, ci);
         }
         {
             core::ManagedImage::CreateInfo ci(usageFlags, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, strataCount, "ASvgf.MomentsAndLinearZ");
             ci.ImageCI.arrayLayers = 2;
             ci.ImageViewCI.viewType = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+            ci.ImageViewCI.subresourceRange.layerCount = 2U;
             mASvgfImages.MomentsAndLinearZ.Create(mContext, ci);
         }
 

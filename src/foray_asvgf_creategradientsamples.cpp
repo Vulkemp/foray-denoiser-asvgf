@@ -55,8 +55,8 @@ namespace foray::asvgf {
         std::vector<VkImageMemoryBarrier2> vkBarriers;
 
         {  // Read Only Images
-            std::vector<core::ManagedImage*> readOnlyImages({mASvgfStage->mInputs.PrimaryInput, &(mASvgfStage->mHistoryImages.PrimaryInput.GetHistoryImage()), mASvgfStage->mInputs.LinearZ,
-                                                            mASvgfStage->mInputs.MeshInstanceIdx, mASvgfStage->mInputs.NoiseTexture});
+            std::vector<core::ManagedImage*> readOnlyImages({mASvgfStage->mInputs.PrimaryInput, &(mASvgfStage->mHistoryImages.PrimaryInput.GetHistoryImage()),
+                                                             mASvgfStage->mInputs.LinearZ, mASvgfStage->mInputs.MeshInstanceIdx, mASvgfStage->mInputs.NoiseTexture});
 
             for(core::ManagedImage* image : readOnlyImages)
             {
@@ -71,18 +71,26 @@ namespace foray::asvgf {
             }
         }
         {  // Write (+Read) Images
-            std::vector<core::ManagedImage*> images{&(mASvgfStage->mASvgfImages.Seed), &(mASvgfStage->mASvgfImages.LuminanceMaxDiff),
-                                                    &(mASvgfStage->mASvgfImages.MomentsAndLinearZ)};
+            std::vector<core::ManagedImage*> images{&(mASvgfStage->mASvgfImages.LuminanceMaxDiff), &(mASvgfStage->mASvgfImages.MomentsAndLinearZ)};
+
+            core::ImageLayoutCache::Barrier2 barrier{
+                .SrcStageMask     = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                .SrcAccessMask    = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+                .DstStageMask     = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                .DstAccessMask    = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
+                .NewLayout        = VkImageLayout::VK_IMAGE_LAYOUT_GENERAL};
+            vkBarriers.push_back(renderInfo.GetImageLayoutCache().MakeBarrier(mASvgfStage->mASvgfImages.Seed, barrier));
+
 
             for(core::ManagedImage* image : images)
             {
                 core::ImageLayoutCache::Barrier2 barrier{
-                    .SrcStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                    .SrcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                    .DstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-                    .DstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
-                    .NewLayout     = VkImageLayout::VK_IMAGE_LAYOUT_GENERAL,
-                };
+                    .SrcStageMask     = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                    .SrcAccessMask    = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+                    .DstStageMask     = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                    .DstAccessMask    = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
+                    .NewLayout        = VkImageLayout::VK_IMAGE_LAYOUT_GENERAL,
+                    .SubresourceRange = VkImageSubresourceRange{.aspectMask = VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1U, .layerCount = 2U}};
                 vkBarriers.push_back(renderInfo.GetImageLayoutCache().MakeBarrier(image, barrier));
             }
         }
