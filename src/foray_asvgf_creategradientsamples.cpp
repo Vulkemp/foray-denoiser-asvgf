@@ -67,7 +67,7 @@ namespace foray::asvgf {
                     .DstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
                     .NewLayout     = VkImageLayout::VK_IMAGE_LAYOUT_GENERAL,
                 };
-                vkBarriers.push_back(renderInfo.GetImageLayoutCache().Set(image, barrier));
+                vkBarriers.push_back(renderInfo.GetImageLayoutCache().MakeBarrier(image, barrier));
             }
         }
         {  // Write (+Read) Images
@@ -83,7 +83,7 @@ namespace foray::asvgf {
                     .DstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
                     .NewLayout     = VkImageLayout::VK_IMAGE_LAYOUT_GENERAL,
                 };
-                vkBarriers.push_back(renderInfo.GetImageLayoutCache().Set(image, barrier));
+                vkBarriers.push_back(renderInfo.GetImageLayoutCache().MakeBarrier(image, barrier));
             }
         }
 

@@ -12,6 +12,7 @@ namespace foray::asvgf {
     class ASvgfDenoiserStage : public foray::stages::DenoiserStage
     {
         friend CreateGradientSamplesStage;
+        friend ATrousGradientStage;
 
       public:
         virtual void Init(core::Context* context, const stages::DenoiserConfig& config) override;

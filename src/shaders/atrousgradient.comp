@@ -1,0 +1,181 @@
+#version 430
+#extension GL_KHR_vulkan_glsl : enable
+#extension GL_GOOGLE_include_directive : enable
+
+#include "asvgf_shared.glsl"
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+//Inputs / Outputs
+layout(rg32f, binding = 0) uniform image2DArray LuminanceMaxDiff;
+
+layout(rgba32f, binding = 1) uniform image2DArray MomentsAndLinearZ;
+
+// Texture read array index
+uint ReadIndex;
+// Texture write array index
+uint WriteIndex;
+
+layout(push_constant) uniform push_constant_t
+{
+    uint IterationCount;
+} PushC;
+
+
+// Information about the center (reference) pixel
+struct RefPixelInfo
+{
+    // Texel Position of the center pixel
+    ivec2 TexelPos;
+    // Step size of the expanding filter
+    int StepSize;
+    // Center pixel linear z + linear z gradient
+    vec2 LinearZ;
+    // Center pixel luminance maximum
+    float Luminance;
+    // Center pixel luminance sigma value
+    float SigmaLuminance;
+};
+
+// Sums of values and weights
+struct Sums
+{
+    // Luminance maximum and difference as read from LuminanceMaxDiff texture
+    vec2  LuminanceMaxDiff;
+    // Luminance as read from MomentsAndLinearZ.r channel
+    float Luminance;
+    // Variance as read from MomentsAndLinearZ.g channel
+    float Variance;
+    // Weight
+    float Weight;
+};
+
+// Function for processing a single texel as dispatched by the filter kernel
+// param offset: Offset relative to reference pixel position
+// param kernelWeight: Weighting of current texel
+// param ref: Information about reference pixel
+// param sums: Sums
+void tap(in ivec2 offset, in float kernelWeight, in RefPixelInfo ref, inout Sums sums) 
+{
+    ivec2 tapTexelPos = ref.TexelPos + offset; 
+
+    // Read values
+
+    vec2  luminanceMaxDiff = imageLoad(LuminanceMaxDiff, ivec3(tapTexelPos, ReadIndex)).rg; 
+    vec4  momentsAndLinearZ = imageLoad(MomentsAndLinearZ,  ivec3(tapTexelPos, ReadIndex)); 
+    float linearZ = momentsAndLinearZ.b;
+    float luminance = momentsAndLinearZ.r;
+
+    // Calculate weights
+
+    float luminanceWeight = abs(luminance - ref.Luminance) / (ref.SigmaLuminance + 1e-10);
+    float linearZWeight = abs(linearZ - ref.LinearZ.x) / (ref.LinearZ.y * length(vec2(offset) * ref.StepSize * STRATASIZE) + 1e-2);
+    float combinedWeight = exp(-luminanceWeight * luminanceWeight - linearZWeight) * kernelWeight;
+
+    // Add to sums object
+
+    sums.LuminanceMaxDiff += luminanceMaxDiff * combinedWeight;
+    sums.Luminance += luminance * combinedWeight;
+    sums.Variance += combinedWeight * combinedWeight * momentsAndLinearZ.g;
+    sums.Weight += combinedWeight;
+}
+
+// Box kernel
+void box3(in RefPixelInfo ref, inout Sums sums)
+{
+	const int r = 1;
+	for(int y = -r; y <= r; y++) {
+		for(int x = -r; x <= r; x++) {
+			if(x != 0 || y != 0) {
+				tap(ivec2(x, y) * ref.StepSize, 1.f, ref, sums);
+			}
+		}
+	}
+}
+
+// TODO HopeSuffers : Add comments
+float calcSigmaLuminance(float luminanceVariance, ivec2 texelPos)
+{
+    const float gaussian_kernel[3][3] = {
+	{ 1.0 / 16.0, 1.0 / 8.0, 1.0 / 16.0 },
+	{ 1.0 / 8.0,  1.0 / 4.0, 1.0 / 8.0  },
+	{ 1.0 / 16.0, 1.0 / 8.0, 1.0 / 16.0 }
+    };
+
+	float sum = luminanceVariance * gaussian_kernel[1][1];
+
+	const int r = 1;
+	for(int yy = -r; yy <= r; yy++) {
+		for(int xx = -r; xx <= r; xx++) {
+			if(xx != 0 || yy != 0) {
+				ivec2 localPos = texelPos + ivec2(xx, yy);
+				float variance = imageLoad(MomentsAndLinearZ, ivec3(localPos, ReadIndex)).g;
+				float weight = gaussian_kernel[xx + 1][yy + 1];
+				sum += variance * weight;
+			}
+		}
+	}
+
+	return sqrt(max(sum, 0.0));
+}
+
+void aTrousIteration (uint iteration){
+    // A trous uses an expanding filter, this is the filter step size
+    uint stepsize = 1 << iteration;
+
+    ReadIndex = iteration % 2;
+    WriteIndex = (iteration + 1) % 2;
+
+    ivec2 texelPos = ivec2(gl_GlobalInvocationID.xy);
+
+    // Load Values
+
+    vec2 luminanceMaxDiff = imageLoad(LuminanceMaxDiff, ivec3(texelPos, ReadIndex)).rg;
+    vec4 momentsAndLinearZ = imageLoad(MomentsAndLinearZ, ivec3(texelPos, ReadIndex));
+
+    RefPixelInfo ref;
+    ref.TexelPos = texelPos;
+    ref.Luminance = momentsAndLinearZ.r;
+    ref.LinearZ = momentsAndLinearZ.ba;
+    ref.SigmaLuminance = calcSigmaLuminance(momentsAndLinearZ.g, texelPos);
+
+    Sums sums;
+    sums.LuminanceMaxDiff = luminanceMaxDiff;
+    sums.Luminance = momentsAndLinearZ.r;
+    sums.Variance = momentsAndLinearZ.g;
+    sums.Weight = 1.0;
+
+    // Dispatch Atrous box filter
+
+    box3(ref, sums);
+
+    // Calculate weighted average
+
+    sums.LuminanceMaxDiff /= sums.Weight;
+    sums.Luminance /= sums.Weight;
+    sums.Variance /= sums.Weight * sums.Weight;
+
+    // Store values
+
+    imageStore(LuminanceMaxDiff, ivec3(texelPos, WriteIndex), vec4(sums.LuminanceMaxDiff, 0, 0));
+    imageStore(MomentsAndLinearZ, ivec3(texelPos, WriteIndex), vec4(sums.Luminance, sums.Variance, momentsAndLinearZ.ba));
+}
+
+void main() {
+    for (uint i = 0; i < PushC.IterationCount; i++) {
+
+        // Calculate atrous iteration
+
+        aTrousIteration(i);
+
+        // In all but the very last iteration, wait for an image memory barrier
+
+        if (i + 1 < PushC.IterationCount)
+        {
+            memoryBarrierImage();
+        }
+    }
+}
+
+
+
