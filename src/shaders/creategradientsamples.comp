@@ -20,9 +20,9 @@ layout(r32ui, binding = 4) uniform readonly uimage2D GbufferMeshInstanceIdx;
 layout(r32ui, binding = 5) uniform readonly uimage2D NoiseTexture;
 
 //Outputs
-layout(rg32f, binding = 6) uniform writeonly image2D LuminanceMaxDiff;
+layout(rg32f, binding = 6) uniform writeonly image2DArray LuminanceMaxDiff;
 
-layout(rgba32f, binding = 7) uniform writeonly image2D MomentsAndLinearZ;
+layout(rgba32f, binding = 7) uniform writeonly image2DArray MomentsAndLinearZ;
 
 layout(push_constant) uniform push_constant_t
 {
@@ -42,7 +42,7 @@ void main()
 	// Position of the current strata
     const ivec2 strataPos = ivec2(gl_GlobalInvocationID.xy);
 
-	const ivec2 texSize = imageSize(LuminanceMaxDiff);
+	const ivec2 texSize = imageSize(LuminanceMaxDiff).xy;
 
 	if (strataPos.x >= texSize.x || strataPos.y >= texSize.y)
 	{
@@ -83,7 +83,7 @@ void main()
 
         float maxLuminance = max(luminance, prevLuminance);
 
-        imageStore(LuminanceMaxDiff, strataPos, vec4(maxLuminance, luminance - prevLuminance, 0.0, 0.0));
+        imageStore(LuminanceMaxDiff, ivec3(strataPos, 0), vec4(maxLuminance, luminance - prevLuminance, 0.0, 0.0));
     }
 
 	// A moment contains luminance + luminance^2 
@@ -131,6 +131,6 @@ void main()
 		vec2 linearZ = imageLoad(GbufferLinearZ, texelPos).rg;
 
 		// Store Moment + LinearZ combo texture
-		imageStore(MomentsAndLinearZ, strataPos, vec4(avgMoment.x, variance, linearZ.x, linearZ.y));
+		imageStore(MomentsAndLinearZ, ivec3(strataPos, 0), vec4(avgMoment.x, variance, linearZ.x, linearZ.y));
 	}
 }

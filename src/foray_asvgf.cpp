@@ -32,11 +32,13 @@ namespace foray::asvgf {
 
             core::ManagedImage::CreateInfo ci(usageFlags, VkFormat::VK_FORMAT_R32G32_SFLOAT, strataCount, "ASvgf.LuminanceMaxDiff");
             ci.ImageCI.arrayLayers = 2;
+            ci.ImageViewCI.viewType = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
             mASvgfImages.LuminanceMaxDiff.Create(mContext, ci);
         }
         {
             core::ManagedImage::CreateInfo ci(usageFlags, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, strataCount, "ASvgf.MomentsAndLinearZ");
             ci.ImageCI.arrayLayers = 2;
+            ci.ImageViewCI.viewType = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
             mASvgfImages.MomentsAndLinearZ.Create(mContext, ci);
         }
 
@@ -120,6 +122,7 @@ namespace foray::asvgf {
         }
 
         mCreateGradientSamplesStage.UpdateDescriptorSet();
+        mAtrousGradientStage.UpdateDescriptorSet();
     }
 
     void ASvgfDenoiserStage::Destroy()
@@ -138,7 +141,7 @@ namespace foray::asvgf {
             image->Destroy();
         }
 
-        std::vector<stages::RenderStage*> stages({&mCreateGradientSamplesStage});
+        std::vector<stages::RenderStage*> stages({&mCreateGradientSamplesStage, &mAtrousGradientStage});
 
         for(stages::RenderStage* stage : stages)
         {
