@@ -1,0 +1,7 @@
+out/
+.vs/
+build/
+logs/
+*.spv
+
+imgui.ini
