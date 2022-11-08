@@ -15,7 +15,7 @@ namespace foray::asvgf {
         ASvgfDenoiserStage* mASvgfStage = nullptr;
 
         virtual void ApiInitShader() override;
-        virtual void ApiCreateDescriptorSetLayout() override;
+        virtual void ApiCreateDescriptorSet() override;
         virtual void ApiCreatePipelineLayout() override;
         virtual void ApiBeforeFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo) override;
         virtual void ApiBeforeDispatch(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo, glm::uvec3& groupSize) override;

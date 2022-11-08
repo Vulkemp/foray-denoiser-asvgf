@@ -25,7 +25,7 @@ namespace foray::asvgf {
 
         virtual void IgnoreHistoryNextFrame() override;
 
-        virtual void OnResized(const VkExtent2D& extent) override;
+        virtual void Resize(const VkExtent2D& extent) override;
 
         virtual void Destroy() override;
 

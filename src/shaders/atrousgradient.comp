@@ -1,15 +1,16 @@
 #version 430
 #extension GL_KHR_vulkan_glsl : enable
 #extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_debug_printf : enable
 
 #include "asvgf_shared.glsl"
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 //Inputs / Outputs
-layout(rg32f, binding = 0) uniform coherent image2DArray LuminanceMaxDiff;
+layout(rg32f, binding = 0) uniform restrict coherent image2DArray LuminanceMaxDiff;
 
-layout(rgba32f, binding = 1) uniform coherent image2DArray MomentsAndLinearZ;
+layout(rgba32f, binding = 1) uniform restrict coherent image2DArray MomentsAndLinearZ;
 
 // Texture read array index
 uint ReadIndex;
@@ -139,6 +140,13 @@ void aTrousIteration (uint iteration){
     ref.LinearZ = momentsAndLinearZ.ba;
     ref.SigmaLuminance = calcSigmaLuminance(momentsAndLinearZ.g, texelPos);
 
+    if (texelPos == imageSize(LuminanceMaxDiff).xy / 2)
+    {
+        debugPrintfEXT("Iteration: %u ReadIdx: %u WriteIdx: %u \n", iteration, ReadIndex, WriteIndex);
+        debugPrintfEXT("LuminanceMaxDiff: %v2f \n", luminanceMaxDiff);
+        debugPrintfEXT("MomentsAndLinearZ: %v4f \n", momentsAndLinearZ);
+    }
+
     Sums sums;
     sums.LuminanceMaxDiff = luminanceMaxDiff;
     sums.Luminance = momentsAndLinearZ.r;
@@ -163,17 +171,14 @@ void aTrousIteration (uint iteration){
 
 void main() {
     for (uint i = 0; i < PushC.IterationCount; i++) {
+        // In all but the very last iteration, wait for an image memory barrier
+
+        memoryBarrier();
 
         // Calculate atrous iteration
 
         aTrousIteration(i);
 
-        // In all but the very last iteration, wait for an image memory barrier
-
-        if (i + 1 < PushC.IterationCount)
-        {
-            memoryBarrierImage();
-        }
     }
 }
 

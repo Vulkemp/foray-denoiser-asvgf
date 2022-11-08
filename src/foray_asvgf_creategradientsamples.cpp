@@ -13,7 +13,7 @@ namespace foray::asvgf {
     {
         mShader.LoadFromSource(mContext, SHADER_DIR "/creategradientsamples.comp");
     }
-    void CreateGradientSamplesStage::ApiCreateDescriptorSetLayout()
+    void CreateGradientSamplesStage::ApiCreateDescriptorSet()
     {
         UpdateDescriptorSet();
     }

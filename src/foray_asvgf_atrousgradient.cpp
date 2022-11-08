@@ -13,7 +13,7 @@ namespace foray::asvgf {
     {
         mShader.LoadFromSource(mContext, SHADER_DIR "/atrousgradient.comp");
     }
-    void ATrousGradientStage::ApiCreateDescriptorSetLayout()
+    void ATrousGradientStage::ApiCreateDescriptorSet()
     {
         UpdateDescriptorSet();
     }

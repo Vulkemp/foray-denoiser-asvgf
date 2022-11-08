@@ -89,7 +89,7 @@ namespace foray::asvgf {
         return VkExtent2D{.width = (extent.width + strataSize - 1) / strataSize, .height = (extent.height + strataSize - 1) / strataSize};
     }
 
-    void ASvgfDenoiserStage::OnResized(const VkExtent2D& extent)
+    void ASvgfDenoiserStage::Resize(const VkExtent2D& extent)
     {
         VkExtent2D strataCount = CalculateStrataCount(extent);
 
