@@ -25,21 +25,22 @@ namespace foray::asvgf {
         //
         mInputs.NoiseTexture = config.AuxiliaryInputs.at(std::string("Noise Source"));
 
+        VkExtent2D renderSize  = mInputs.PrimaryInput->GetExtent2D();
         VkExtent2D strataCount = CalculateStrataCount(mContext->GetSwapchainSize());
 
         VkImageUsageFlags usageFlags = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_SAMPLED_BIT;
         {  // Create ASvgf Stage owned Images
 
             core::ManagedImage::CreateInfo ci(usageFlags, VkFormat::VK_FORMAT_R32G32_SFLOAT, strataCount, "ASvgf.LuminanceMaxDiff");
-            ci.ImageCI.arrayLayers = 2;
-            ci.ImageViewCI.viewType = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+            ci.ImageCI.arrayLayers                     = 2;
+            ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
             ci.ImageViewCI.subresourceRange.layerCount = 2U;
             mASvgfImages.LuminanceMaxDiff.Create(mContext, ci);
         }
         {
             core::ManagedImage::CreateInfo ci(usageFlags, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, strataCount, "ASvgf.MomentsAndLinearZ");
-            ci.ImageCI.arrayLayers = 2;
-            ci.ImageViewCI.viewType = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+            ci.ImageCI.arrayLayers                     = 2;
+            ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
             ci.ImageViewCI.subresourceRange.layerCount = 2U;
             mASvgfImages.MomentsAndLinearZ.Create(mContext, ci);
         }
@@ -62,14 +63,43 @@ namespace foray::asvgf {
             }
         }
 
+        {      // Create Accumulation Images
+            {  // Accumulated Color
+                VkImageUsageFlags              usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+                core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, renderSize, "ASvgf.Accu.Color");
+                ci.ImageCI.arrayLayers                     = 2;
+                ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+                ci.ImageViewCI.subresourceRange.layerCount = 2U;
+                mAccumulatedImages.Color.Create(mContext, ci);
+            }
+            {  // Accumulated Moments
+                VkImageUsageFlags              usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+                core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32G32_SFLOAT, renderSize, "ASvgf.Accu.Moments");
+                ci.ImageCI.arrayLayers                     = 2;
+                ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+                ci.ImageViewCI.subresourceRange.layerCount = 2U;
+                mAccumulatedImages.Moments.Create(mContext, ci);
+            }
+            {  // Accumulated History
+                VkImageUsageFlags              usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+                core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32_SFLOAT, renderSize, "ASvgf.Accu.HistoryLength");
+                ci.ImageCI.arrayLayers                     = 2;
+                ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+                ci.ImageViewCI.subresourceRange.layerCount = 2U;
+                mAccumulatedImages.HistoryLength.Create(mContext, ci);
+            }
+        }
+
         mCreateGradientSamplesStage.Init(this);
         mAtrousGradientStage.Init(this);
+        mTemporalAccumulationStage.Init(this);
     }
 
     void ASvgfDenoiserStage::RecordFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
     {
         mCreateGradientSamplesStage.RecordFrame(cmdBuffer, renderInfo);
         mAtrousGradientStage.RecordFrame(cmdBuffer, renderInfo);
+        mTemporalAccumulationStage.RecordFrame(cmdBuffer, renderInfo);
 
         CopyToHistory(cmdBuffer, renderInfo);
     }
@@ -96,7 +126,6 @@ namespace foray::asvgf {
         VkExtent2D strataCount = CalculateStrataCount(extent);
 
         std::vector<core::ManagedImage*> strataImages({&(mASvgfImages.LuminanceMaxDiff), &(mASvgfImages.MomentsAndLinearZ), &(mASvgfImages.Seed)});
-        std::vector<core::ManagedImage*> fullSizeImages;
         for(core::ManagedImage* image : strataImages)
         {
             if(image->Exists())
@@ -105,6 +134,7 @@ namespace foray::asvgf {
             }
         }
 
+        std::vector<core::ManagedImage*> fullSizeImages({&(mAccumulatedImages.Color), &(mAccumulatedImages.Moments), &(mAccumulatedImages.HistoryLength)});
         for(core::ManagedImage* image : fullSizeImages)
         {
             if(image->Exists())
@@ -125,11 +155,12 @@ namespace foray::asvgf {
 
         mCreateGradientSamplesStage.UpdateDescriptorSet();
         mAtrousGradientStage.UpdateDescriptorSet();
+        mTemporalAccumulationStage.UpdateDescriptorSet();
     }
 
     void ASvgfDenoiserStage::Destroy()
     {
-        std::vector<core::ManagedImage*> images({&(mASvgfImages.LuminanceMaxDiff), &(mASvgfImages.MomentsAndLinearZ), &(mASvgfImages.Seed)});
+        std::vector<core::ManagedImage*> images({&(mASvgfImages.LuminanceMaxDiff), &(mASvgfImages.MomentsAndLinearZ), &(mASvgfImages.Seed), &(mAccumulatedImages.Color), &(mAccumulatedImages.Moments), &(mAccumulatedImages.HistoryLength)});
 
         for(core::ManagedImage* image : images)
         {
@@ -143,7 +174,7 @@ namespace foray::asvgf {
             image->Destroy();
         }
 
-        std::vector<stages::RenderStage*> stages({&mCreateGradientSamplesStage, &mAtrousGradientStage});
+        std::vector<stages::RenderStage*> stages({&mCreateGradientSamplesStage, &mAtrousGradientStage, &mTemporalAccumulationStage});
 
         for(stages::RenderStage* stage : stages)
         {

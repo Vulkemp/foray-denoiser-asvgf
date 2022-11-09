@@ -1,0 +1,146 @@
+#version 430
+#extension GL_KHR_vulkan_glsl : enable
+#extension GL_GOOGLE_include_directive : enable
+
+#include "asvgf_shared.glsl"
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+//Inputs
+layout(rgba32f, binding = 0) uniform readonly image2D PrimaryInput;
+
+layout(rg32f, binding = 1) uniform readonly image2D GbufferMotionVec;
+
+layout(rg32f, binding = 2) uniform readonly image2D GbufferLinearZ;
+
+layout(rg32f, binding = 3) uniform readonly image2D HistoryGbufferLinearZ;
+
+layout(rgba32f, binding = 4) uniform readonly image2D GbufferNormals;
+
+layout(rgba32f, binding = 5) uniform readonly image2D HistoryGbufferNormals;
+
+layout(r32ui, binding = 6) uniform readonly uimage2D GbufferMeshInstanceIdx;
+
+layout(r32ui, binding = 7) uniform readonly uimage2D HistoryGbufferMeshInstanceIdx;
+
+//Output
+layout(rgba32f, binding = 8) uniform image2DArray AccumulatedColor; //ReadWrite access
+
+layout(rg32f, binding = 9) uniform image2DArray AccumulatedMoments; //ReadWrite access
+
+layout(r32f, binding = 10) uniform image2DArray AccumulatedHistoryLength; //ReadWrite access
+
+layout(push_constant) uniform push_constant_t
+{
+    // Read array index
+    uint ReadIdx;
+    // Write array index
+    uint WriteIdx;
+    // Maximum deviation of the sinus of previous and current normal (Default 0.05)
+    float MaxNormalDeviation;
+    // Deviation multiplier (Default 1.0)
+    float DepthDeviationToleranceMultiplier;
+    // Combined Weight Threshhold (Default 0.01)
+    float WeightThreshhold;
+    // Minimum weight assigned to new data
+    float MinNewDataWeight;
+} PushC;
+
+bool testInsideScreen(in ivec2 samplePos, in ivec2 renderSize)
+{
+    return samplePos.x >= 0 && samplePos.x < renderSize.x && samplePos.y >= 0 && samplePos.y < renderSize.y;
+}
+
+bool testNormalDeviation(in vec3 currNormal, in vec3 prevNormal)
+{
+    return (1 - dot(currNormal, prevNormal)) <= PushC.MaxNormalDeviation;
+}
+
+bool testDepthDeviation(in float currDepth, in float prevDepth, in float currDepthGradient)
+{
+    // TODO: Make sure the source material was actually wrong
+    float diff = abs(currDepth - prevDepth);
+    float tolerance = 2.0 * (currDepthGradient + 1e-3) * PushC.DepthDeviationToleranceMultiplier;
+    return diff < tolerance;
+}
+
+void main() {
+    ivec2 currPos = ivec2(gl_GlobalInvocationID.xy);
+
+    ivec2 renderSize = imageSize(GbufferMotionVec);
+
+    vec2 motionVec = imageLoad(GbufferMotionVec, currPos).xy;
+
+    vec2 prevPos = currPos + motionVec * imageSize(HistoryGbufferLinearZ).xy;
+
+    vec2 prevPosSubPixel = fract(prevPos);
+
+    vec2 currLinearZ = imageLoad(GbufferLinearZ, currPos).rg;
+
+    vec3 currColor = imageLoad(PrimaryInput, currPos).rgb;
+
+    vec3 currNormal = imageLoad(GbufferNormals, currPos).rgb;
+
+    uint meshInstanceIdx = imageLoad(GbufferMeshInstanceIdx, currPos).x;
+
+    float luminance = calcLuminance(currColor);
+
+    vec2 currMoments = vec2(luminance, luminance * luminance);
+
+    vec3 prevColor = vec3(0);
+    vec2 prevMoments = vec2(0);
+    float historyLength = 0.f;
+    float summedWeight = 0.f;
+
+    { // Read history data w/ bilinear interpolation
+    	for(int y = 0; y <= 1; y++) {
+    		for(int x = 0; x <= 1; x++) {
+    			ivec2 samplePos    = ivec2(prevPos + ivec2(x, y));
+    			float prevDepth    = imageLoad(HistoryGbufferLinearZ, samplePos).r;
+    			vec3  prevNormal   = imageLoad(HistoryGbufferNormals, samplePos).rgb;
+    			uint prevMeshInstanceIdx  = imageLoad(HistoryGbufferMeshInstanceIdx, samplePos).x;
+
+    			bool accept = true;
+    			accept = accept && testInsideScreen(samplePos, renderSize); // discard outside viewport
+    			accept = accept && testNormalDeviation(currNormal, prevNormal); // discard if normal deviates too far (18 degrees max)
+    			accept = accept && testDepthDeviation(currLinearZ.x, prevDepth, currLinearZ.y); // test depth ????
+    			accept = accept && meshInstanceIdx == prevMeshInstanceIdx; // Check mesh id
+
+    			if(accept) {
+    				float weight = (x == 0 ? (1.0 - prevPosSubPixel.x) : prevPosSubPixel.x)
+    					    * (y == 0 ? (1.0 - prevPosSubPixel.y) : prevPosSubPixel.y); // bilinear weight
+    				prevColor   += imageLoad(AccumulatedColor, ivec3(samplePos, PushC.ReadIdx)).rgb * weight;
+    				prevMoments += imageLoad(AccumulatedMoments, ivec3(samplePos, PushC.ReadIdx)).rg * weight;
+    				historyLength += imageLoad(AccumulatedHistoryLength, ivec3(samplePos, PushC.ReadIdx)).r * weight;
+    				summedWeight += weight;
+    			}
+    		}
+        }
+    }
+
+
+    // TODO: Implement Antilag
+    float antilagAlpha = 0.f;
+
+    if (summedWeight > PushC.WeightThreshhold)
+    {
+        // Alpha values: [0...1], where 0 == only history data, 1 == only new data
+        
+        float rawHistoryAlpha = 1.f / (historyLength + 1.f);
+        float colorAlpha = max(PushC.MinNewDataWeight, rawHistoryAlpha);
+        float momentsAlpha = max(0.6, rawHistoryAlpha);
+
+        vec4 accuColorPlusHistlen = vec4(mix(prevColor, currColor, colorAlpha), historyLength + 1.f);
+        imageStore(AccumulatedColor, ivec3(currPos, PushC.WriteIdx), accuColorPlusHistlen);
+        vec4 accuMoments = vec4(mix(prevMoments, currMoments, momentsAlpha), 0, 0);
+        imageStore(AccumulatedMoments, ivec3(currPos, PushC.WriteIdx), accuMoments);
+        historyLength = min(64, historyLength + 1.f);
+        imageStore(AccumulatedHistoryLength, ivec3(currPos, PushC.WriteIdx), vec4(historyLength, 0, 0, 0));
+    }
+    else
+    {
+        imageStore(AccumulatedColor, ivec3(currPos, PushC.WriteIdx), vec4(currColor, 1.f));
+        imageStore(AccumulatedMoments, ivec3(currPos, PushC.WriteIdx), vec4(currMoments, 0, 0));
+        imageStore(AccumulatedHistoryLength, ivec3(currPos, PushC.WriteIdx), vec4(1.f, 0, 0, 0));
+    }
+}

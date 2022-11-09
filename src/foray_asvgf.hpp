@@ -13,6 +13,7 @@ namespace foray::asvgf {
     {
         friend CreateGradientSamplesStage;
         friend ATrousGradientStage;
+        friend TemporalAccumulationStage;
 
       public:
         virtual void Init(core::Context* context, const stages::DenoiserConfig& config) override;
@@ -56,6 +57,13 @@ namespace foray::asvgf {
             util::HistoryImage Normal;
         } mHistoryImages;
 
+        struct
+        {
+            core::ManagedImage Color;
+            core::ManagedImage Moments;
+            core::ManagedImage HistoryLength;
+        } mAccumulatedImages;
+        
         core::ManagedImage* mPrimaryOutput = nullptr;
 
         CreateGradientSamplesStage mCreateGradientSamplesStage;
