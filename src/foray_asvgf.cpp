@@ -1,4 +1,6 @@
 #include "foray_asvgf.hpp"
+#include <imgui/imgui.h>
+#include <nameof/nameof.hpp>
 #include <spdlog/fmt/fmt.h>
 
 namespace foray::asvgf {
@@ -97,11 +99,20 @@ namespace foray::asvgf {
 
     void ASvgfDenoiserStage::RecordFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
     {
+        if(mHistoryImages.Valid)
+        {
+            renderInfo.GetImageLayoutCache().Set(mHistoryImages.PrimaryInput, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            renderInfo.GetImageLayoutCache().Set(mHistoryImages.LinearZ, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            renderInfo.GetImageLayoutCache().Set(mHistoryImages.MeshInstanceIdx, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            renderInfo.GetImageLayoutCache().Set(mHistoryImages.Normal, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        }
+
         mCreateGradientSamplesStage.RecordFrame(cmdBuffer, renderInfo);
         mAtrousGradientStage.RecordFrame(cmdBuffer, renderInfo);
         mTemporalAccumulationStage.RecordFrame(cmdBuffer, renderInfo);
 
         CopyToHistory(cmdBuffer, renderInfo);
+        mHistoryImages.Valid = true;
     }
 
     void ASvgfDenoiserStage::CopyToHistory(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
@@ -111,7 +122,15 @@ namespace foray::asvgf {
         util::HistoryImage::sMultiCopySourceToHistory(historyImages, cmdBuffer, renderInfo);
     }
 
-    void ASvgfDenoiserStage::DisplayImguiConfiguration() {}
+    void ASvgfDenoiserStage::DisplayImguiConfiguration()
+    {
+        const char* debugModes[] = {"none", "Accu.Output", "Accu.Weights"};
+        int debugMode = (int)mDebugMode;
+        if (ImGui::Combo("Debug Mode", &debugMode, debugModes, 3))
+        {
+            mDebugMode = (uint32_t)debugMode;
+        }
+    }
 
     void ASvgfDenoiserStage::IgnoreHistoryNextFrame() {}
 
@@ -152,15 +171,24 @@ namespace foray::asvgf {
                 image->Resize(extent);
             }
         }
+        mHistoryImages.Valid = false;
 
         mCreateGradientSamplesStage.UpdateDescriptorSet();
         mAtrousGradientStage.UpdateDescriptorSet();
         mTemporalAccumulationStage.UpdateDescriptorSet();
     }
 
+    void ASvgfDenoiserStage::OnShadersRecompiled()
+    {
+        mCreateGradientSamplesStage.OnShadersRecompiled();
+        mAtrousGradientStage.OnShadersRecompiled();
+        mTemporalAccumulationStage.OnShadersRecompiled();
+    }
+
     void ASvgfDenoiserStage::Destroy()
     {
-        std::vector<core::ManagedImage*> images({&(mASvgfImages.LuminanceMaxDiff), &(mASvgfImages.MomentsAndLinearZ), &(mASvgfImages.Seed), &(mAccumulatedImages.Color), &(mAccumulatedImages.Moments), &(mAccumulatedImages.HistoryLength)});
+        std::vector<core::ManagedImage*> images({&(mASvgfImages.LuminanceMaxDiff), &(mASvgfImages.MomentsAndLinearZ), &(mASvgfImages.Seed), &(mAccumulatedImages.Color),
+                                                 &(mAccumulatedImages.Moments), &(mAccumulatedImages.HistoryLength)});
 
         for(core::ManagedImage* image : images)
         {
@@ -173,6 +201,7 @@ namespace foray::asvgf {
         {
             image->Destroy();
         }
+        mHistoryImages.Valid = false;
 
         std::vector<stages::RenderStage*> stages({&mCreateGradientSamplesStage, &mAtrousGradientStage, &mTemporalAccumulationStage});
 

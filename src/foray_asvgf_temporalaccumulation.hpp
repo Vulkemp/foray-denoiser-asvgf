@@ -28,7 +28,9 @@ namespace foray::asvgf {
             // Combined Weight Threshhold (Default 0.01)
             fp32_t WeightThreshhold = 0.01f;
             // Minimum weight assigned to new data
-            fp32_t MinNewDataWeight = 0.1f;
+            fp32_t   MinNewDataWeight = 0.1f;
+            VkBool32 EnableHistory = VK_TRUE;
+            uint32_t DebugOutputMode = 0;
         };
 
 

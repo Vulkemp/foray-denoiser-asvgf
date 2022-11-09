@@ -7,6 +7,7 @@
 #include "foray_asvgf_temporalaccumulation.hpp"
 #include <stages/foray_denoiserstage.hpp>
 #include <util/foray_historyimage.hpp>
+#include "shaders/debug.glsl.h"
 
 namespace foray::asvgf {
     class ASvgfDenoiserStage : public foray::stages::DenoiserStage
@@ -28,7 +29,11 @@ namespace foray::asvgf {
 
         virtual void Resize(const VkExtent2D& extent) override;
 
+        virtual void OnShadersRecompiled() override;
+
         virtual void Destroy() override;
+
+        FORAY_PROPERTY_V(DebugMode)
 
       protected:
         struct
@@ -55,6 +60,7 @@ namespace foray::asvgf {
             util::HistoryImage LinearZ;
             util::HistoryImage MeshInstanceIdx;
             util::HistoryImage Normal;
+            bool Valid = false;
         } mHistoryImages;
 
         struct
@@ -65,12 +71,14 @@ namespace foray::asvgf {
         } mAccumulatedImages;
         
         core::ManagedImage* mPrimaryOutput = nullptr;
+        uint32_t mDebugMode = DEBUG_TEMPACCU_OUTPUT;
 
         CreateGradientSamplesStage mCreateGradientSamplesStage;
         ATrousGradientStage        mAtrousGradientStage;
         TemporalAccumulationStage  mTemporalAccumulationStage;
         EstimateVarianceStage      mEstimateVarianceStage;
         ATrousStage                mAtrousStage;
+
 
         VkExtent2D CalculateStrataCount(const VkExtent2D& extent);
 

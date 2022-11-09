@@ -12,6 +12,7 @@ namespace foray::asvgf {
     void TemporalAccumulationStage::ApiInitShader()
     {
         mShader.LoadFromSource(mContext, SHADER_DIR "/temporalaccumulation.comp");
+        mShaderSourcePaths.push_back(SHADER_DIR "/temporalaccumulation.comp");
     }
     void TemporalAccumulationStage::ApiCreateDescriptorSet()
     {
@@ -29,7 +30,8 @@ namespace foray::asvgf {
                                                 &mASvgfStage->mHistoryImages.MeshInstanceIdx.GetHistoryImage(),
                                                 &mASvgfStage->mAccumulatedImages.Color,
                                                 &mASvgfStage->mAccumulatedImages.Moments,
-                                                &mASvgfStage->mAccumulatedImages.HistoryLength};
+                                                &mASvgfStage->mAccumulatedImages.HistoryLength,
+                                                mASvgfStage->mPrimaryOutput};
 
         for(size_t i = 0; i < images.size(); i++)
         {
@@ -76,6 +78,12 @@ namespace foray::asvgf {
                 vkBarriers.push_back(renderInfo.GetImageLayoutCache().MakeBarrier(image, barrier));
             }
         }
+        core::ImageLayoutCache::Barrier2 barrier{.SrcStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                                                 .SrcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+                                                 .DstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                                 .DstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT,
+                                                 .NewLayout     = VkImageLayout::VK_IMAGE_LAYOUT_GENERAL};
+        vkBarriers.push_back(renderInfo.GetImageLayoutCache().MakeBarrier(mASvgfStage->mPrimaryOutput, barrier));
         {  // Write (+Read) Images
             std::vector<core::ManagedImage*> images{&(mASvgfStage->mAccumulatedImages.Color), &(mASvgfStage->mAccumulatedImages.Moments),
                                                     &(mASvgfStage->mAccumulatedImages.HistoryLength)};
@@ -101,7 +109,11 @@ namespace foray::asvgf {
 
     void TemporalAccumulationStage::ApiBeforeDispatch(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo, glm::uvec3& groupSize)
     {
-        PushConstant pushC = PushConstant();
+        PushConstant pushC    = PushConstant();
+        pushC.ReadIdx         = renderInfo.GetFrameNumber() % 2;
+        pushC.WriteIdx        = (renderInfo.GetFrameNumber() + 1) % 2;
+        pushC.EnableHistory   = mASvgfStage->mHistoryImages.Valid;
+        pushC.DebugOutputMode = mASvgfStage->mDebugMode;
         vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushC), &pushC);
 
         VkExtent3D size = mASvgfStage->mInputs.PrimaryInput->GetExtent3D();
