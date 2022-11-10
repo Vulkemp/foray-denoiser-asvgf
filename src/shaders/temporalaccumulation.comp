@@ -32,7 +32,7 @@ layout(rg32f, binding = 9) uniform image2DArray AccumulatedMoments; //ReadWrite 
 
 layout(r32f, binding = 10) uniform image2DArray AccumulatedHistoryLength; //ReadWrite access
 
-layout(rgba32f, binding = 11) uniform writeonly image2D DebugOutput[];
+layout(rgba32f, binding = 11) uniform writeonly image2D DebugOutput;
 
 layout(push_constant) uniform push_constant_t
 {
@@ -66,9 +66,8 @@ bool testDepthDeviation(in float currDepth, in float prevDepth, in float currDep
 {
     // TODO: Make sure the source material was actually wrong
     float diff = abs(currDepth - prevDepth);
-    float tolerance = 0.2 * PushC.DepthDeviationToleranceMultiplier;
+    float tolerance = 20.0 * (currDepthGradient + 1e-3) * PushC.DepthDeviationToleranceMultiplier;
     return diff < tolerance;
-    return true;
 }
 
 void main() {
@@ -111,7 +110,7 @@ void main() {
     			bool accept = true;
     			accept = accept && testInsideScreen(samplePos, renderSize); // discard outside viewport
     			accept = accept && testNormalDeviation(currNormal, prevNormal); // discard if normal deviates too far (18 degrees max)
-    			// accept = accept && testDepthDeviation(currLinearZ.x, prevDepth, currLinearZ.y); // test depth ????
+    			accept = accept && testDepthDeviation(currLinearZ.x, prevDepth, currLinearZ.y); // test depth ????
     			accept = accept && meshInstanceIdx == prevMeshInstanceIdx; // Check mesh id
 
     			if(accept) {
@@ -146,7 +145,7 @@ void main() {
         imageStore(AccumulatedHistoryLength, ivec3(currPos, PushC.WriteIdx), vec4(historyLength, 0, 0, 0));
         if (PushC.DebugMode == DEBUG_TEMPACCU_OUTPUT)
         {
-            imageStore(DebugOutput[0], currPos, vec4(mix(prevColor, currColor, colorAlpha), 1.f));
+            imageStore(DebugOutput, currPos, vec4(mix(prevColor, currColor, colorAlpha), 1.f));
         }
     }
     else
@@ -156,11 +155,11 @@ void main() {
         imageStore(AccumulatedHistoryLength, ivec3(currPos, PushC.WriteIdx), vec4(1.f, 0, 0, 0));
         if (PushC.DebugMode == DEBUG_TEMPACCU_OUTPUT)
         {
-            imageStore(DebugOutput[0], currPos, vec4(currColor, 1.f));
+            imageStore(DebugOutput, currPos, vec4(currColor, 1.f));
         }
     }
     if (PushC.DebugMode == DEBUG_TEMPACCU_WEIGHTS)
     {
-        imageStore(DebugOutput[0], currPos, vec4(summedWeight, 0, 0, 1));
+        imageStore(DebugOutput, currPos, vec4(summedWeight / 10, 0, 0, 1));
     }
 }

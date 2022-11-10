@@ -29,7 +29,9 @@ namespace foray::asvgf {
             fp32_t WeightThreshhold = 0.01f;
             // Minimum weight assigned to new data
             fp32_t   MinNewDataWeight = 0.1f;
+            // Set to true to enable use of historic data
             VkBool32 EnableHistory = VK_TRUE;
+            // Set to a non-zero value to enable debug outputs
             uint32_t DebugOutputMode = 0;
         };
 
