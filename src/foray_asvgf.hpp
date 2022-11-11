@@ -15,6 +15,7 @@ namespace foray::asvgf {
         friend CreateGradientSamplesStage;
         friend ATrousGradientStage;
         friend TemporalAccumulationStage;
+        friend EstimateVarianceStage;
 
       public:
         virtual void Init(core::Context* context, const stages::DenoiserConfig& config) override;
@@ -52,6 +53,7 @@ namespace foray::asvgf {
             core::ManagedImage LuminanceMaxDiff;
             core::ManagedImage MomentsAndLinearZ;
             core::ManagedImage Seed;
+            uint32_t LastArrayWriteIdx = 0;
         } mASvgfImages;
 
         struct
@@ -68,7 +70,11 @@ namespace foray::asvgf {
             core::ManagedImage Color;
             core::ManagedImage Moments;
             core::ManagedImage HistoryLength;
+            uint32_t LastArrayWriteIdx = 0;
         } mAccumulatedImages;
+
+        core::ManagedImage mATrousImage;
+        uint32_t mATrousLastArrayWriteIdx = 0;
         
         core::ManagedImage* mPrimaryOutput = nullptr;
         uint32_t mDebugMode = DEBUG_TEMPACCU_OUTPUT;

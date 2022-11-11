@@ -69,6 +69,7 @@ namespace foray::asvgf {
     {
         uint32_t IterationCount = 5;
         vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(IterationCount), &IterationCount);
+        mASvgfStage->mASvgfImages.LastArrayWriteIdx = IterationCount % 2;
 
         VkExtent3D size = mASvgfStage->mASvgfImages.LuminanceMaxDiff.GetExtent3D();
 

@@ -32,7 +32,9 @@ layout(rg32f, binding = 9) uniform image2DArray AccumulatedMoments; //ReadWrite 
 
 layout(r32f, binding = 10) uniform image2DArray AccumulatedHistoryLength; //ReadWrite access
 
-layout(rgba32f, binding = 11) uniform writeonly image2D DebugOutput;
+layout(rg32f, binding = 11) uniform readonly image2DArray LuminanceMaxDiff;
+
+layout(rgba32f, binding = 12) uniform writeonly image2D DebugOutput;
 
 layout(push_constant) uniform push_constant_t
 {
@@ -48,6 +50,7 @@ layout(push_constant) uniform push_constant_t
     float WeightThreshhold;
     // Minimum weight assigned to new data
     float MinNewDataWeight;
+    uint LuminanceMaxDiffReadIdx;
     uint EnableHistory;
     uint DebugMode;
 } PushC;
@@ -62,13 +65,13 @@ bool testNormalDeviation(in vec3 currNormal, in vec3 prevNormal)
     return (1 - dot(currNormal, prevNormal)) <= PushC.MaxNormalDeviation;
 }
 
-bool testDepthDeviation(in float currDepth, in float prevDepth, in float currDepthGradient)
-{
-    // TODO: Make sure the source material was actually wrong
-    float diff = abs(currDepth - prevDepth);
-    float tolerance = 20.0 * (currDepthGradient + 1e-3) * PushC.DepthDeviationToleranceMultiplier;
-    return diff < tolerance;
-}
+//bool testDepthDeviation(in float currDepth, in float prevDepth, in float currDepthGradient)
+//{
+//    // TODO: Make sure the source material was actually wrong
+//    float diff = abs(currDepth - prevDepth);
+//    float tolerance = 20.0 * (currDepthGradient + 1e-3) * PushC.DepthDeviationToleranceMultiplier;
+//    return diff < tolerance;
+//}
 
 void main() {
     ivec2 currPos = ivec2(gl_GlobalInvocationID.xy);
@@ -110,7 +113,7 @@ void main() {
     			bool accept = true;
     			accept = accept && testInsideScreen(samplePos, renderSize); // discard outside viewport
     			accept = accept && testNormalDeviation(currNormal, prevNormal); // discard if normal deviates too far (18 degrees max)
-    			accept = accept && testDepthDeviation(currLinearZ.x, prevDepth, currLinearZ.y); // test depth ????
+                //ToDo HopeSuffers: World space position test instead of Depth test
     			accept = accept && meshInstanceIdx == prevMeshInstanceIdx; // Check mesh id
 
     			if(accept) {
@@ -128,6 +131,29 @@ void main() {
 
     // TODO: Implement Antilag
     float antilagAlpha = 0.f;
+    {
+        const int gradientFilterRadius = 2;
+
+        for(int y = -gradientFilterRadius; y <= gradientFilterRadius; y++) {
+			for(int x = -gradientFilterRadius; x <= gradientFilterRadius; x++) {
+                ivec3 samplePos = ivec3(currPos / STRATASIZE + ivec2(x, y), PushC.LuminanceMaxDiffReadIdx);
+                vec2 luminanceMaxDiff = imageLoad(LuminanceMaxDiff, samplePos).rg;
+                float lumMax = luminanceMaxDiff.r;
+                float lumDiff = luminanceMaxDiff.g;
+
+				float a = clamp(abs(lumMax > 1e-4 ? abs(lumDiff) / lumMax : 0.0), 0.0, 200.0);
+
+				antilagAlpha = max(antilagAlpha, a);
+			}
+		}
+    }
+
+    clamp(antilagAlpha, 0.0, 1.0);
+	if(isnan(antilagAlpha))
+    {
+		antilagAlpha = 1.0;
+    }
+
 
     if (summedWeight > PushC.WeightThreshhold)
     {
@@ -136,6 +162,9 @@ void main() {
         float rawHistoryAlpha = 1.f / (historyLength + 1.f);
         float colorAlpha = max(PushC.MinNewDataWeight, rawHistoryAlpha);
         float momentsAlpha = max(0.6, rawHistoryAlpha);
+
+        colorAlpha = mix(colorAlpha, 1.0, antilagAlpha);
+        momentsAlpha = mix(momentsAlpha, 1.0, antilagAlpha);
 
         vec4 accuColorPlusHistlen = vec4(mix(prevColor, currColor, colorAlpha), historyLength + 1.f);
         imageStore(AccumulatedColor, ivec3(currPos, PushC.WriteIdx), accuColorPlusHistlen);
@@ -147,6 +176,10 @@ void main() {
         {
             imageStore(DebugOutput, currPos, vec4(mix(prevColor, currColor, colorAlpha), 1.f));
         }
+        if (PushC.DebugMode == DEBUG_TEMPACCU_ALPHA)
+        {
+            imageStore(DebugOutput, currPos, vec4(colorAlpha, momentsAlpha, 0.f, 1.f));
+        }
     }
     else
     {
@@ -156,6 +189,10 @@ void main() {
         if (PushC.DebugMode == DEBUG_TEMPACCU_OUTPUT)
         {
             imageStore(DebugOutput, currPos, vec4(currColor, 1.f));
+        }
+        if (PushC.DebugMode == DEBUG_TEMPACCU_ALPHA)
+        {
+            imageStore(DebugOutput, currPos, vec4(0.f, 0.f, 0.f, 1.f));
         }
     }
     if (PushC.DebugMode == DEBUG_TEMPACCU_WEIGHTS)

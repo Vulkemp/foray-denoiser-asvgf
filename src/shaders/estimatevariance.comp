@@ -1,0 +1,120 @@
+#version 430
+#extension GL_KHR_vulkan_glsl : enable
+#extension GL_GOOGLE_include_directive : enable
+
+#include "asvgf_shared.glsl"
+#include "debug.glsl.h"
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+//Inputs
+layout(rgba32f, binding = 0) uniform readonly image2DArray AccumulatedColor; 
+
+layout(rg32f, binding = 1) uniform readonly image2DArray AccumulatedMoments; 
+
+layout(r32f, binding = 2) uniform readonly image2DArray AccumulatedHistoryLength;
+
+layout(rgba32f, binding = 3) uniform readonly image2D PrimaryInput;
+
+layout(rg32f, binding = 4) uniform readonly image2D GbufferLinearZ;
+
+layout(r32ui, binding = 5) uniform readonly uimage2D GbufferMeshInstanceIdx;
+
+layout(rgba32f, binding = 6) uniform readonly image2D GbufferNormals;
+
+//Output
+layout(rgba32f, binding = 7) uniform writeonly image2DArray ColorTemporalVariance;
+
+layout(rgba32f, binding = 8) uniform writeonly image2D DebugOutput;
+
+layout(push_constant) uniform push_constant_t
+{
+	uint ReadIdx;
+	uint WriteIdx;
+	float HistoryLengthThreshold;
+	uint DebugMode;
+} PushC;
+
+void main(){
+
+    ivec2 currPos = ivec2(gl_GlobalInvocationID.xy);
+
+    vec2 moments = imageLoad(AccumulatedMoments, ivec3(currPos, PushC.ReadIdx)).xy;
+
+    float historyLength = imageLoad(AccumulatedHistoryLength, ivec3(currPos, PushC.ReadIdx)).r;
+
+    vec4 accumulatedColor = imageLoad(AccumulatedColor, ivec3(currPos, PushC.ReadIdx));
+
+    vec4 linearZ = imageLoad(GbufferLinearZ, currPos);
+
+	if(linearZ.x < 0) 
+	{ 
+		// TODO: Why does this need to be escaped? LinearZ should never be a negative value
+	    imageStore(ColorTemporalVariance, ivec3(currPos, PushC.WriteIdx), vec4(accumulatedColor.rgb, 0));
+	    return;
+    }
+
+    if(historyLength < PushC.HistoryLengthThreshold) {
+    		// for short history, gain information from surrounding pixels
+
+    	{ 
+    		float luminance = calcLuminance(accumulatedColor.rgb);
+    		moments += vec2(luminance, luminance * luminance);
+    	}
+
+    	vec3 normal = imageLoad(GbufferNormals, currPos).xyz;
+    	uint meshInstanceIdx =  imageLoad(GbufferMeshInstanceIdx, currPos).r;
+
+		float sumWeight = 1.0; // TODO: Check if this should 2.0
+		const int kernel = historyLength > 1 ? 2 : 3; // use a bigger kernel if no history present
+		for(int y = -kernel; y <= kernel; y++) {
+			for(int x = -kernel; x <= kernel; x++) {
+				if(x != 0 || y != 0) {
+					ivec2 samplePos = currPos + ivec2(x, y);
+					vec3 sampleAccumulatedColor = imageLoad(AccumulatedColor, ivec3(samplePos, PushC.ReadIdx)).rgb;
+
+    				float luminance = calcLuminance(sampleAccumulatedColor.rgb);
+
+   					float sampleLinearZ = imageLoad(GbufferLinearZ, samplePos).x;
+   					vec3 sampleNormal = imageLoad(GbufferNormals, samplePos).xyz;
+
+   					float weightLinearZ = abs(sampleLinearZ - linearZ.x) / (linearZ.y * length(vec2(x, y)) + 1e-2);
+                    float weightNormal = pow(max(0, dot(sampleNormal, normal)), 128.0); 
+
+  					uint meshInstanceIdxPos =  imageLoad(GbufferMeshInstanceIdx, samplePos).r;
+
+   					float weight = exp(- weightLinearZ) * weightNormal * (meshInstanceIdx == meshInstanceIdxPos ? 1.0 : 0.0);
+
+   					if(isnan(weight))
+					{
+   						weight = 0.0;
+					}
+
+   					sumWeight += weight;
+
+   					moments += vec2(luminance, luminance * luminance) * weight;
+   					accumulatedColor.rgb += sampleAccumulatedColor * weight;
+   				}
+   			}
+   		}
+
+   		moments /= sumWeight;
+   		accumulatedColor.rgb /= sumWeight;
+
+		float temporalVariance = (1.0 + 3.0 * (1.0 - historyLength / PushC.HistoryLengthThreshold)) * max(0.0, moments.y - moments.x * moments.x);
+    
+	    imageStore(ColorTemporalVariance, ivec3(currPos, PushC.WriteIdx), vec4(accumulatedColor.rgb, temporalVariance));
+		if (PushC.DebugMode == DEBUG_ESTVAR_VARIANCE)
+		{
+		   	imageStore(DebugOutput, currPos, vec4(temporalVariance, 0, 0, 1));
+		}
+    }
+    else {
+    	float temporalVariance = max(0.0, moments.y - moments.x * moments.x);
+    	imageStore(ColorTemporalVariance, ivec3(currPos, PushC.WriteIdx), vec4(accumulatedColor.rgb, temporalVariance));
+		if (PushC.DebugMode == DEBUG_ESTVAR_VARIANCE)
+		{
+	    	imageStore(DebugOutput, currPos, vec4(temporalVariance, 0, 0, 1));
+		}
+    }
+}

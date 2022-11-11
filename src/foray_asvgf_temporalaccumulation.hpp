@@ -29,6 +29,8 @@ namespace foray::asvgf {
             fp32_t WeightThreshhold = 0.01f;
             // Minimum weight assigned to new data
             fp32_t   MinNewDataWeight = 0.1f;
+            // Array ReadIdx of LuminanceMaxDiffTex
+            uint32_t LuminanceMaxDiffReadIdx;
             // Set to true to enable use of historic data
             VkBool32 EnableHistory = VK_TRUE;
             // Set to a non-zero value to enable debug outputs

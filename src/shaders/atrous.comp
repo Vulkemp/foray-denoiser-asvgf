@@ -1,0 +1,199 @@
+#version 430
+#extension GL_KHR_vulkan_glsl : enable
+#extension GL_GOOGLE_include_directive : enable
+
+#include "asvgf_shared.glsl"
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+//Inputs
+layout(rg32f, binding = 0) uniform readonly image2D GbufferLinearZ; 
+
+layout(rgba32f, binding = 1) uniform readonly image2D GbufferNormals;
+
+layout(rgba32f, binding = 2) uniform readonly image2D GbufferAlbedo;
+
+//Output
+layout(rgba32f, binding = 3) uniform image2DArray ColorTemporalVariance; //ReadWrite access
+
+layout(rgba32f, binding = 4) uniform writeonly image2D OutputImage;
+
+// Texture read array index
+uint ReadIndex;
+// Texture write array index
+uint WriteIndex;
+
+layout(push_constant) uniform push_constant_t
+{
+    uint IterationCount;
+    uint ReadIdx;
+} PushC;
+
+// Information about the center (reference) pixel
+struct RefPixelInfo
+{
+    // Texel Position of the center pixel
+    ivec2 TexelPos;
+    // Step size of the expanding filter
+    int StepSize;
+    vec4 Color;
+    vec3 Normal;
+    // Center pixel linear z + linear z gradient
+    vec2 LinearZ;
+    // Center pixel luminance maximum
+    float Luminance;
+    // Center pixel luminance sigma value
+    float SigmaLuminance;
+};
+
+// Sums of values and weights
+struct Sums
+{
+    // 
+    vec3  Color;
+    // Variance as read from MomentsAndLinearZ.g channel
+    float Variance;
+    // Weight
+    float Weight;
+};
+
+// Function for processing a single texel as dispatched by the filter kernel
+// param offset: Offset relative to reference pixel position
+// param kernelWeight: Weighting of current texel
+// param ref: Information about reference pixel
+// param sums: Sums
+void tap(in ivec2 offset, in float kernelWeight, in RefPixelInfo ref, inout Sums sums) 
+{
+    ivec2 tapTexelPos = ref.TexelPos + offset; 
+
+    // Read values
+
+    vec4 color = imageLoad(ColorTemporalVariance, ivec3(tapTexelPos, ReadIndex));
+    vec3 normal = imageLoad(GbufferNormals, tapTexelPos).rgb;
+    float  linearZ = imageLoad(GbufferLinearZ, tapTexelPos).r; 
+    float luminance = calcLuminance(color.rbg);
+
+    // Calculate weights
+
+    float luminanceWeight = abs(luminance - ref.Luminance) / (ref.SigmaLuminance + 1e-10);
+    float linearZWeight = 3.0 * abs(linearZ - ref.LinearZ.x) / (ref.LinearZ.y * length(vec2(offset) * ref.StepSize) + 1e-2);
+    float normalWeight = pow(max(0, dot(normal, ref.Normal)), 128.0);
+    float combinedWeight = exp(-luminanceWeight * luminanceWeight - linearZWeight) * kernelWeight * normalWeight;
+
+    // Add to sums object
+
+    sums.Color += color.rgb * combinedWeight;
+    sums.Variance += combinedWeight * combinedWeight * color.a;
+    sums.Weight += combinedWeight;
+}
+
+// Box kernel
+void box3(in RefPixelInfo ref, inout Sums sums)
+{
+	const int kernel = 1;
+	for(int y = -kernel; y <= kernel; y++) {
+		for(int x = -kernel; x <= kernel; x++) {
+			if(x != 0 || y != 0) {
+				tap(ivec2(x, y) * ref.StepSize, 1.f, ref, sums);
+			}
+		}
+	}
+}
+
+// TODO HopeSuffers : Add comments
+float calcSigmaLuminance(float luminanceVariance, ivec2 texelPos)
+{
+    const float gaussian_kernel[3][3] = {
+	{ 1.0 / 16.0, 1.0 / 8.0, 1.0 / 16.0 },
+	{ 1.0 / 8.0,  1.0 / 4.0, 1.0 / 8.0  },
+	{ 1.0 / 16.0, 1.0 / 8.0, 1.0 / 16.0 }
+    };
+
+	float sum = luminanceVariance * gaussian_kernel[1][1];
+
+	const int kernel = 1;
+	for(int y = -kernel; y <= kernel; y++) {
+		for(int x = -kernel; x <= kernel; x++) {
+			if(x != 0 || y != 0) {
+				ivec2 localPos = texelPos + ivec2(x, y);
+				float variance = imageLoad(ColorTemporalVariance, ivec3(localPos, ReadIndex)).a;
+				float weight = gaussian_kernel[x + kernel][y + kernel];
+				sum += variance * weight;
+			}
+		}
+	}
+
+	return sqrt(max(sum, 0.0));
+}
+
+vec4 aTrousIteration (uint iteration){
+    // A trous uses an expanding filter, this is the filter step size
+    uint stepsize = 1 << iteration;
+
+    ReadIndex = iteration % 2;
+    WriteIndex = (iteration + 1) % 2;
+
+    ivec2 texelPos = ivec2(gl_GlobalInvocationID.xy);
+
+    // Load Values
+
+    vec4 colorTemporalVariance = imageLoad(ColorTemporalVariance, ivec3(texelPos, ReadIndex));
+    vec3 normal = imageLoad(GbufferNormals, texelPos).rgb;
+    vec2 linearZ = imageLoad(GbufferLinearZ, texelPos).rg;
+    float luminance = calcLuminance(colorTemporalVariance.rgb);
+    float sigmaLuminance = calcSigmaLuminance(colorTemporalVariance.a, texelPos);
+
+    RefPixelInfo ref;
+    ref.TexelPos = texelPos;
+    ref.Color = colorTemporalVariance.rgba;
+    ref.Normal = normal;
+    ref.LinearZ = linearZ;
+    ref.Luminance = luminance;
+    ref.SigmaLuminance = sigmaLuminance;
+
+    Sums sums;
+    sums.Color = colorTemporalVariance.rgb;
+    sums.Variance = colorTemporalVariance.a;
+    sums.Weight = 1.0;
+
+    // Dispatch Atrous box filter
+
+    box3(ref, sums);
+
+    // Calculate weighted average
+
+    sums.Color /= sums.Weight;
+    sums.Variance /= sums.Weight * sums.Weight;
+
+    // Store values
+
+    return vec4(sums.Color, sums.Variance);
+}
+
+void main() {
+    ivec2 texelPos = ivec2(gl_GlobalInvocationID.xy);
+
+    vec4 colorAndVariance = vec4(0);
+
+    for (uint i = 0; i < PushC.IterationCount; i++) {
+        // Calculate atrous iteration
+
+        colorAndVariance = aTrousIteration(i);
+
+        // In all but the very last iteration, wait for an image memory barrier
+
+        if (i + 1 < PushC.IterationCount)
+        {
+            imageStore(ColorTemporalVariance, ivec3(texelPos, WriteIndex), colorAndVariance);
+            barrier();
+            memoryBarrierImage();
+        }
+    }
+
+    // Modulate albedo
+
+    colorAndVariance.rgb *= imageLoad(GbufferAlbedo, texelPos).rgb;
+    colorAndVariance.a = 1.0;
+
+    imageStore(OutputImage, texelPos, colorAndVariance);
+}
