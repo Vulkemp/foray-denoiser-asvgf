@@ -105,6 +105,7 @@ namespace foray::asvgf {
         mAtrousGradientStage.Init(this);
         mTemporalAccumulationStage.Init(this);
         mEstimateVarianceStage.Init(this);
+        mAtrousStage.Init(this);
     }
 
     void ASvgfDenoiserStage::RecordFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
@@ -121,6 +122,7 @@ namespace foray::asvgf {
         mAtrousGradientStage.RecordFrame(cmdBuffer, renderInfo);
         mTemporalAccumulationStage.RecordFrame(cmdBuffer, renderInfo);
         mEstimateVarianceStage.RecordFrame(cmdBuffer, renderInfo);
+        mAtrousStage.RecordFrame(cmdBuffer, renderInfo);
 
         CopyToHistory(cmdBuffer, renderInfo);
         mHistoryImages.Valid = true;
@@ -188,6 +190,7 @@ namespace foray::asvgf {
         mAtrousGradientStage.UpdateDescriptorSet();
         mTemporalAccumulationStage.UpdateDescriptorSet();
         mEstimateVarianceStage.UpdateDescriptorSet();
+        mAtrousStage.UpdateDescriptorSet();
     }
 
     void ASvgfDenoiserStage::OnShadersRecompiled()
@@ -196,6 +199,7 @@ namespace foray::asvgf {
         mAtrousGradientStage.OnShadersRecompiled();
         mTemporalAccumulationStage.OnShadersRecompiled();
         mEstimateVarianceStage.OnShadersRecompiled();
+        mAtrousStage.OnShadersRecompiled();
     }
 
     void ASvgfDenoiserStage::Destroy()
@@ -216,7 +220,7 @@ namespace foray::asvgf {
         }
         mHistoryImages.Valid = false;
 
-        std::vector<stages::RenderStage*> stages({&mCreateGradientSamplesStage, &mAtrousGradientStage, &mTemporalAccumulationStage, &mEstimateVarianceStage});
+        std::vector<stages::RenderStage*> stages({&mCreateGradientSamplesStage, &mAtrousGradientStage, &mTemporalAccumulationStage, &mEstimateVarianceStage, &mAtrousStage});
 
         for(stages::RenderStage* stage : stages)
         {

@@ -16,6 +16,7 @@ namespace foray::asvgf {
         friend ATrousGradientStage;
         friend TemporalAccumulationStage;
         friend EstimateVarianceStage;
+        friend ATrousStage;
 
       public:
         virtual void Init(core::Context* context, const stages::DenoiserConfig& config) override;

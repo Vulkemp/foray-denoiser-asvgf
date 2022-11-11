@@ -130,8 +130,8 @@ vec4 aTrousIteration (uint iteration){
     // A trous uses an expanding filter, this is the filter step size
     uint stepsize = 1 << iteration;
 
-    ReadIndex = iteration % 2;
-    WriteIndex = (iteration + 1) % 2;
+    ReadIndex = (iteration + PushC.ReadIdx) % 2;
+    WriteIndex = (iteration + PushC.ReadIdx + 1) % 2;
 
     ivec2 texelPos = ivec2(gl_GlobalInvocationID.xy);
 
