@@ -143,6 +143,12 @@ namespace foray::asvgf {
         {
             mDebugMode = (uint32_t)debugMode;
         }
+        const char* atrousKernelModes[] = {"Box3", "Box5", "atrous", "subsampled"};
+        int atrousKernelIdx = (int)mAtrousStage.mPushC.UsedKernel;
+        if (ImGui::Combo("Kernel Mode", &atrousKernelIdx, atrousKernelModes, 4))
+        {
+            mAtrousStage.mPushC.UsedKernel = (uint32_t)atrousKernelIdx;
+        }
     }
 
     void ASvgfDenoiserStage::IgnoreHistoryNextFrame() {}

@@ -7,7 +7,9 @@ namespace foray::asvgf {
 
     class ATrousStage : public foray::stages::ComputeStage
     {
-    public:
+        friend ASvgfDenoiserStage;
+
+      public:
         void Init(ASvgfDenoiserStage* aSvgfStage);
 
         void UpdateDescriptorSet();
@@ -21,7 +23,9 @@ namespace foray::asvgf {
             uint32_t IterationCount = 0;
             // Read array index
             uint32_t ReadIdx = 0;
-        };
+            // Kernel used for filtering
+            uint32_t UsedKernel = 0;
+        } mPushC;
 
         virtual void ApiInitShader() override;
         virtual void ApiCreateDescriptorSet() override;

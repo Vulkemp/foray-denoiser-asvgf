@@ -23,6 +23,10 @@ namespace foray::asvgf {
                                        VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
         mDescriptorSet.SetDescriptorAt(1, mASvgfStage->mASvgfImages.MomentsAndLinearZ, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr,
                                        VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
+
+        mDescriptorSet.SetDescriptorAt(2, mASvgfStage->mPrimaryOutput, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr,
+                                       VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
+
         if(mDescriptorSet.Exists())
         {
             mDescriptorSet.Update();
@@ -43,6 +47,15 @@ namespace foray::asvgf {
     void ATrousGradientStage::ApiBeforeFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
     {
         std::vector<VkImageMemoryBarrier2> vkBarriers;
+
+        {  // Output (Debug) image
+            core::ImageLayoutCache::Barrier2 barrier{.SrcStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                                                     .SrcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+                                                     .DstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                                     .DstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT,
+                                                     .NewLayout     = VkImageLayout::VK_IMAGE_LAYOUT_GENERAL};
+            vkBarriers.push_back(renderInfo.GetImageLayoutCache().MakeBarrier(mASvgfStage->mPrimaryOutput, barrier));
+        }
 
         // Write (+Read) Images
         std::vector<core::ManagedImage*> images{&(mASvgfStage->mASvgfImages.LuminanceMaxDiff), &(mASvgfStage->mASvgfImages.MomentsAndLinearZ)};

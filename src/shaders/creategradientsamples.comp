@@ -24,6 +24,8 @@ layout(rg32f, binding = 6) uniform writeonly image2DArray LuminanceMaxDiff;
 
 layout(rgba32f, binding = 7) uniform writeonly image2DArray MomentsAndLinearZ;
 
+layout(rgba32f, binding = 8) uniform writeonly image2D DebugOutput;
+
 layout(push_constant) uniform push_constant_t
 {
     uint FrameIdx;

@@ -71,6 +71,15 @@ namespace foray::asvgf {
             }
         }
 
+        {  // Output (Debug) image
+            core::ImageLayoutCache::Barrier2 barrier{.SrcStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                                                     .SrcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+                                                     .DstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                                     .DstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT,
+                                                     .NewLayout     = VkImageLayout::VK_IMAGE_LAYOUT_GENERAL};
+            vkBarriers.push_back(renderInfo.GetImageLayoutCache().MakeBarrier(mASvgfStage->mPrimaryOutput, barrier));
+        }
+
         {  // Write (+Read) Images
             std::vector<core::ManagedImage*> images{&(mASvgfStage->mAccumulatedImages.Color)};
 
@@ -87,11 +96,12 @@ namespace foray::asvgf {
             }
 
             core::ImageLayoutCache::Barrier2 barrier{
-                .SrcStageMask     = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                .SrcAccessMask    = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                .DstStageMask     = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-                .DstAccessMask    = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
-                .NewLayout        = VkImageLayout::VK_IMAGE_LAYOUT_GENERAL,};
+                .SrcStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                .SrcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+                .DstStageMask  = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                .DstAccessMask = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
+                .NewLayout     = VkImageLayout::VK_IMAGE_LAYOUT_GENERAL,
+            };
             vkBarriers.push_back(renderInfo.GetImageLayoutCache().MakeBarrier(mASvgfStage->mPrimaryOutput, barrier));
         }
 
@@ -103,10 +113,10 @@ namespace foray::asvgf {
 
     void ATrousStage::ApiBeforeDispatch(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo, glm::uvec3& groupSize)
     {
-        PushConstant pushC                                = PushConstant();
-        pushC.IterationCount = 5;
-        pushC.ReadIdx                                     = mASvgfStage->mATrousLastArrayWriteIdx;
-        vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushC), &pushC);
+        mPushC                = PushConstant();
+        mPushC.IterationCount = 5;
+        mPushC.ReadIdx        = mASvgfStage->mATrousLastArrayWriteIdx;
+        vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(mPushC), &mPushC);
 
         VkExtent3D size = mASvgfStage->mInputs.PrimaryInput->GetExtent3D();
 
