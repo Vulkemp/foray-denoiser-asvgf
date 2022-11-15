@@ -23,10 +23,6 @@ namespace foray::asvgf {
         mPrimaryOutput = config.PrimaryOutput;
         Assert(!!mPrimaryOutput);
 
-        // Noise Source Inputs
-        //
-        mInputs.NoiseTexture = config.AuxiliaryInputs.at(std::string("Noise Source"));
-
         VkExtent2D renderSize  = mInputs.PrimaryInput->GetExtent2D();
         VkExtent2D strataCount = CalculateStrataCount(mContext->GetSwapchainSize());
 
@@ -65,173 +61,198 @@ namespace foray::asvgf {
             }
         }
 
-        {      // Create Accumulation Images
-            {  // Accumulated Color
-                VkImageUsageFlags              usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-                core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, renderSize, "ASvgf.Accu.Color");
-                ci.ImageCI.arrayLayers                     = 2;
-                ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-                ci.ImageViewCI.subresourceRange.layerCount = 2U;
-                mAccumulatedImages.Color.Create(mContext, ci);
-            }
-            {  // Accumulated Moments
-                VkImageUsageFlags              usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-                core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32G32_SFLOAT, renderSize, "ASvgf.Accu.Moments");
-                ci.ImageCI.arrayLayers                     = 2;
-                ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-                ci.ImageViewCI.subresourceRange.layerCount = 2U;
-                mAccumulatedImages.Moments.Create(mContext, ci);
-            }
-            {  // Accumulated History
-                VkImageUsageFlags              usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-                core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32_SFLOAT, renderSize, "ASvgf.Accu.HistoryLength");
-                ci.ImageCI.arrayLayers                     = 2;
-                ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-                ci.ImageViewCI.subresourceRange.layerCount = 2U;
-                mAccumulatedImages.HistoryLength.Create(mContext, ci);
-            }
-        }
+        { // Create Accumulation Images
+         {// Accumulated Color
+          VkImageUsageFlags usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, renderSize, "ASvgf.Accu.Color");
+        ci.ImageCI.arrayLayers                     = 2;
+        ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+        ci.ImageViewCI.subresourceRange.layerCount = 2U;
+        mAccumulatedImages.Color.Create(mContext, ci);
+    }
+    {  // Accumulated Moments
+        VkImageUsageFlags              usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32G32_SFLOAT, renderSize, "ASvgf.Accu.Moments");
+        ci.ImageCI.arrayLayers                     = 2;
+        ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+        ci.ImageViewCI.subresourceRange.layerCount = 2U;
+        mAccumulatedImages.Moments.Create(mContext, ci);
+    }
+    {  // Accumulated History
+        VkImageUsageFlags              usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32_SFLOAT, renderSize, "ASvgf.Accu.HistoryLength");
+        ci.ImageCI.arrayLayers                     = 2;
+        ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+        ci.ImageViewCI.subresourceRange.layerCount = 2U;
+        mAccumulatedImages.HistoryLength.Create(mContext, ci);
+    }
+}  // namespace foray::asvgf
 
-        {
-            VkImageUsageFlags              usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT;
-            core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, renderSize, "ASvgf.ATrous");
-            ci.ImageCI.arrayLayers                     = 2;
-            ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-            ci.ImageViewCI.subresourceRange.layerCount = 2U;
-            mATrousImage.Create(mContext, ci);
-        }
+{
+    VkImageUsageFlags              usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT;
+    core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, renderSize, "ASvgf.ATrous");
+    ci.ImageCI.arrayLayers                     = 2;
+    ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+    ci.ImageViewCI.subresourceRange.layerCount = 2U;
+    mATrousImage.Create(mContext, ci);
+}
 
-        mCreateGradientSamplesStage.Init(this);
-        mAtrousGradientStage.Init(this);
-        mTemporalAccumulationStage.Init(this);
-        mEstimateVarianceStage.Init(this);
-        mAtrousStage.Init(this);
+mCreateGradientSamplesStage.Init(this);
+mAtrousGradientStage.Init(this);
+mTemporalAccumulationStage.Init(this);
+mEstimateVarianceStage.Init(this);
+mAtrousStage.Init(this);
+}
+
+void ASvgfDenoiserStage::RecordFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
+{
+    if(mHistoryImages.Valid)
+    {
+        renderInfo.GetImageLayoutCache().Set(mHistoryImages.PrimaryInput, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        renderInfo.GetImageLayoutCache().Set(mHistoryImages.LinearZ, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        renderInfo.GetImageLayoutCache().Set(mHistoryImages.MeshInstanceIdx, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        renderInfo.GetImageLayoutCache().Set(mHistoryImages.Normal, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     }
 
-    void ASvgfDenoiserStage::RecordFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
+    mCreateGradientSamplesStage.RecordFrame(cmdBuffer, renderInfo);
+    mAtrousGradientStage.RecordFrame(cmdBuffer, renderInfo);
+    mTemporalAccumulationStage.RecordFrame(cmdBuffer, renderInfo);
+    mEstimateVarianceStage.RecordFrame(cmdBuffer, renderInfo);
+    mAtrousStage.RecordFrame(cmdBuffer, renderInfo);
+
+    CopyToHistory(cmdBuffer, renderInfo);
+    mHistoryImages.Valid = true;
+}
+
+void ASvgfDenoiserStage::CopyToHistory(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
+{
+    std::vector<util::HistoryImage*> historyImages{&mHistoryImages.LinearZ, &mHistoryImages.MeshInstanceIdx, &mHistoryImages.Normal, &mHistoryImages.PrimaryInput};
+
+    util::HistoryImage::sMultiCopySourceToHistory(historyImages, cmdBuffer, renderInfo);
+}
+
+void ASvgfDenoiserStage::DisplayImguiConfiguration()
+{
+    const char* debugModes[] = {"DEBUG_NONE",
+                                "DEBUG_CGS_LUMMAXDIFF",
+                                "DEBUG_CGS_MOMENTSLINZ",
+                                "DEBUG_GSATROUS_RESERVED0",
+                                "DEBUG_GSATROUS_RESERVED1",
+                                "DEBUG_TEMPACCU_OUTPUT",
+                                "DEBUG_TEMPACCU_WEIGHTS",
+                                "DEBUG_TEMPACCU_ALPHA",
+                                "DEBUG_ESTVAR_VARIANCE",
+                                "DEBUG_VARIO"};
+    int         debugMode    = (int)mDebugMode;
+    if(ImGui::Combo("Debug Mode", &debugMode, debugModes, sizeof(debugModes) / sizeof(const char*)))
     {
-        if(mHistoryImages.Valid)
+        mDebugMode = (uint32_t)debugMode;
+    }
+    if (ImGui::CollapsingHeader("Gradient Samples Atrous Settings"))
+    {
+        int iterations = (int)mAtrousGradientStage.mPushC.IterationCount;
+        if (ImGui::SliderInt("Iterations", &iterations, 1, 9))
         {
-            renderInfo.GetImageLayoutCache().Set(mHistoryImages.PrimaryInput, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-            renderInfo.GetImageLayoutCache().Set(mHistoryImages.LinearZ, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-            renderInfo.GetImageLayoutCache().Set(mHistoryImages.MeshInstanceIdx, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-            renderInfo.GetImageLayoutCache().Set(mHistoryImages.Normal, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            mAtrousGradientStage.mPushC.IterationCount = (uint32_t)iterations;
         }
-
-        mCreateGradientSamplesStage.RecordFrame(cmdBuffer, renderInfo);
-        mAtrousGradientStage.RecordFrame(cmdBuffer, renderInfo);
-        mTemporalAccumulationStage.RecordFrame(cmdBuffer, renderInfo);
-        mEstimateVarianceStage.RecordFrame(cmdBuffer, renderInfo);
-        mAtrousStage.RecordFrame(cmdBuffer, renderInfo);
-
-        CopyToHistory(cmdBuffer, renderInfo);
-        mHistoryImages.Valid = true;
     }
-
-    void ASvgfDenoiserStage::CopyToHistory(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
+    if (ImGui::CollapsingHeader("Color Atrous Settings"))
     {
-        std::vector<util::HistoryImage*> historyImages{&mHistoryImages.LinearZ, &mHistoryImages.MeshInstanceIdx, &mHistoryImages.Normal, &mHistoryImages.PrimaryInput};
-
-        util::HistoryImage::sMultiCopySourceToHistory(historyImages, cmdBuffer, renderInfo);
-    }
-
-    void ASvgfDenoiserStage::DisplayImguiConfiguration()
-    {
-        const char* debugModes[] = {"none", "Accu.Output", "Accu.Weights", "Accu.Alpha", "EstVar.Variance"};
-        int debugMode = (int)mDebugMode;
-        if (ImGui::Combo("Debug Mode", &debugMode, debugModes, 5))
+        int iterations = (int)mAtrousStage.mPushC.IterationCount;
+        if (ImGui::SliderInt("Iterations", &iterations, 1, 9))
         {
-            mDebugMode = (uint32_t)debugMode;
+            mAtrousStage.mPushC.IterationCount = (uint32_t)iterations;
         }
         const char* atrousKernelModes[] = {"Box3", "Box5", "atrous", "subsampled"};
-        int atrousKernelIdx = (int)mAtrousStage.mPushC.UsedKernel;
-        if (ImGui::Combo("Kernel Mode", &atrousKernelIdx, atrousKernelModes, 4))
+        int         atrousKernelIdx     = (int)mAtrousStage.mPushC.UsedKernel;
+        if(ImGui::Combo("Kernel Mode", &atrousKernelIdx, atrousKernelModes, 4))
         {
             mAtrousStage.mPushC.UsedKernel = (uint32_t)atrousKernelIdx;
         }
     }
+}
 
-    void ASvgfDenoiserStage::IgnoreHistoryNextFrame() {}
+void ASvgfDenoiserStage::IgnoreHistoryNextFrame() {}
 
-    VkExtent2D ASvgfDenoiserStage::CalculateStrataCount(const VkExtent2D& extent)
+VkExtent2D ASvgfDenoiserStage::CalculateStrataCount(const VkExtent2D& extent)
+{
+    uint32_t strataSize = 3;
+    return VkExtent2D{.width = (extent.width + strataSize - 1) / strataSize, .height = (extent.height + strataSize - 1) / strataSize};
+}
+
+void ASvgfDenoiserStage::Resize(const VkExtent2D& extent)
+{
+    VkExtent2D strataCount = CalculateStrataCount(extent);
+
+    std::vector<core::ManagedImage*> strataImages({&(mASvgfImages.LuminanceMaxDiff), &(mASvgfImages.MomentsAndLinearZ), &(mASvgfImages.Seed)});
+    for(core::ManagedImage* image : strataImages)
     {
-        uint32_t strataSize = 3;
-        return VkExtent2D{.width = (extent.width + strataSize - 1) / strataSize, .height = (extent.height + strataSize - 1) / strataSize};
+        if(image->Exists())
+        {
+            image->Resize(strataCount);
+        }
     }
 
-    void ASvgfDenoiserStage::Resize(const VkExtent2D& extent)
+    std::vector<core::ManagedImage*> fullSizeImages({&(mAccumulatedImages.Color), &(mAccumulatedImages.Moments), &(mAccumulatedImages.HistoryLength), &mATrousImage});
+    for(core::ManagedImage* image : fullSizeImages)
     {
-        VkExtent2D strataCount = CalculateStrataCount(extent);
-
-        std::vector<core::ManagedImage*> strataImages({&(mASvgfImages.LuminanceMaxDiff), &(mASvgfImages.MomentsAndLinearZ), &(mASvgfImages.Seed)});
-        for(core::ManagedImage* image : strataImages)
+        if(image->Exists())
         {
-            if(image->Exists())
-            {
-                image->Resize(strataCount);
-            }
+            image->Resize(extent);
         }
-
-        std::vector<core::ManagedImage*> fullSizeImages({&(mAccumulatedImages.Color), &(mAccumulatedImages.Moments), &(mAccumulatedImages.HistoryLength), &mATrousImage});
-        for(core::ManagedImage* image : fullSizeImages)
-        {
-            if(image->Exists())
-            {
-                image->Resize(extent);
-            }
-        }
-
-        std::vector<util::HistoryImage*> historyImages{&mHistoryImages.LinearZ, &mHistoryImages.MeshInstanceIdx, &mHistoryImages.Normal, &mHistoryImages.PrimaryInput};
-
-        for(util::HistoryImage* image : historyImages)
-        {
-            if(image->Exists())
-            {
-                image->Resize(extent);
-            }
-        }
-        mHistoryImages.Valid = false;
-
-        mCreateGradientSamplesStage.UpdateDescriptorSet();
-        mAtrousGradientStage.UpdateDescriptorSet();
-        mTemporalAccumulationStage.UpdateDescriptorSet();
-        mEstimateVarianceStage.UpdateDescriptorSet();
-        mAtrousStage.UpdateDescriptorSet();
     }
 
-    void ASvgfDenoiserStage::OnShadersRecompiled()
+    std::vector<util::HistoryImage*> historyImages{&mHistoryImages.LinearZ, &mHistoryImages.MeshInstanceIdx, &mHistoryImages.Normal, &mHistoryImages.PrimaryInput};
+
+    for(util::HistoryImage* image : historyImages)
     {
-        mCreateGradientSamplesStage.OnShadersRecompiled();
-        mAtrousGradientStage.OnShadersRecompiled();
-        mTemporalAccumulationStage.OnShadersRecompiled();
-        mEstimateVarianceStage.OnShadersRecompiled();
-        mAtrousStage.OnShadersRecompiled();
-    }
-
-    void ASvgfDenoiserStage::Destroy()
-    {
-        std::vector<core::ManagedImage*> images({&(mASvgfImages.LuminanceMaxDiff), &(mASvgfImages.MomentsAndLinearZ), &(mASvgfImages.Seed), &(mAccumulatedImages.Color),
-                                                 &(mAccumulatedImages.Moments), &(mAccumulatedImages.HistoryLength), &mATrousImage});
-
-        for(core::ManagedImage* image : images)
+        if(image->Exists())
         {
-            image->Destroy();
-        }
-
-        std::vector<util::HistoryImage*> historyImages({&(mHistoryImages.PrimaryInput), &(mHistoryImages.LinearZ), &(mHistoryImages.MeshInstanceIdx), &(mHistoryImages.Normal)});
-
-        for(util::HistoryImage* image : historyImages)
-        {
-            image->Destroy();
-        }
-        mHistoryImages.Valid = false;
-
-        std::vector<stages::RenderStage*> stages({&mCreateGradientSamplesStage, &mAtrousGradientStage, &mTemporalAccumulationStage, &mEstimateVarianceStage, &mAtrousStage});
-
-        for(stages::RenderStage* stage : stages)
-        {
-            stage->Destroy();
+            image->Resize(extent);
         }
     }
+    mHistoryImages.Valid = false;
+
+    mCreateGradientSamplesStage.UpdateDescriptorSet();
+    mAtrousGradientStage.UpdateDescriptorSet();
+    mTemporalAccumulationStage.UpdateDescriptorSet();
+    mEstimateVarianceStage.UpdateDescriptorSet();
+    mAtrousStage.UpdateDescriptorSet();
+}
+
+void ASvgfDenoiserStage::OnShadersRecompiled()
+{
+    mCreateGradientSamplesStage.OnShadersRecompiled();
+    mAtrousGradientStage.OnShadersRecompiled();
+    mTemporalAccumulationStage.OnShadersRecompiled();
+    mEstimateVarianceStage.OnShadersRecompiled();
+    mAtrousStage.OnShadersRecompiled();
+}
+
+void ASvgfDenoiserStage::Destroy()
+{
+    std::vector<core::ManagedImage*> images({&(mASvgfImages.LuminanceMaxDiff), &(mASvgfImages.MomentsAndLinearZ), &(mASvgfImages.Seed), &(mAccumulatedImages.Color),
+                                             &(mAccumulatedImages.Moments), &(mAccumulatedImages.HistoryLength), &mATrousImage});
+
+    for(core::ManagedImage* image : images)
+    {
+        image->Destroy();
+    }
+
+    std::vector<util::HistoryImage*> historyImages({&(mHistoryImages.PrimaryInput), &(mHistoryImages.LinearZ), &(mHistoryImages.MeshInstanceIdx), &(mHistoryImages.Normal)});
+
+    for(util::HistoryImage* image : historyImages)
+    {
+        image->Destroy();
+    }
+    mHistoryImages.Valid = false;
+
+    std::vector<stages::RenderStage*> stages({&mCreateGradientSamplesStage, &mAtrousGradientStage, &mTemporalAccumulationStage, &mEstimateVarianceStage, &mAtrousStage});
+
+    for(stages::RenderStage* stage : stages)
+    {
+        stage->Destroy();
+    }
+}
 
 }  // namespace foray::asvgf

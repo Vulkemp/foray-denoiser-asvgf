@@ -12,6 +12,7 @@ namespace foray::asvgf {
     void ATrousGradientStage::ApiInitShader()
     {
         mShader.LoadFromSource(mContext, SHADER_DIR "/atrousgradient.comp");
+        mShaderSourcePaths.push_back(SHADER_DIR "/atrousgradient.comp");
     }
     void ATrousGradientStage::ApiCreateDescriptorSet()
     {
@@ -40,7 +41,7 @@ namespace foray::asvgf {
     void ATrousGradientStage::ApiCreatePipelineLayout()
     {
         mPipelineLayout.AddDescriptorSetLayout(mDescriptorSet.GetDescriptorSetLayout());
-        mPipelineLayout.AddPushConstantRange<uint32_t>(VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
+        mPipelineLayout.AddPushConstantRange<PushConstant>(VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
         mPipelineLayout.Build(mContext);
     }
 
@@ -80,9 +81,9 @@ namespace foray::asvgf {
 
     void ATrousGradientStage::ApiBeforeDispatch(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo, glm::uvec3& groupSize)
     {
-        uint32_t IterationCount = 5;
-        vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(IterationCount), &IterationCount);
-        mASvgfStage->mASvgfImages.LastArrayWriteIdx = IterationCount % 2;
+        mPushC.DebugMode = mASvgfStage->mDebugMode;
+        vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(mPushC), &mPushC);
+        mASvgfStage->mASvgfImages.LastArrayWriteIdx = mPushC.IterationCount % 2;
 
         VkExtent3D size = mASvgfStage->mASvgfImages.LuminanceMaxDiff.GetExtent3D();
 

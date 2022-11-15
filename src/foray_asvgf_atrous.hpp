@@ -20,11 +20,12 @@ namespace foray::asvgf {
         struct PushConstant
         {
             // Iteration Count
-            uint32_t IterationCount = 0;
+            uint32_t IterationCount = 5;
             // Read array index
             uint32_t ReadIdx = 0;
             // Kernel used for filtering
             uint32_t UsedKernel = 0;
+            uint32_t DebugMode = 0;
         } mPushC;
 
         virtual void ApiInitShader() override;

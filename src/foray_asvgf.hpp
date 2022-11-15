@@ -46,7 +46,6 @@ namespace foray::asvgf {
             core::ManagedImage* LinearZ         = nullptr;
             core::ManagedImage* Motion          = nullptr;
             core::ManagedImage* MeshInstanceIdx = nullptr;
-            core::ManagedImage* NoiseTexture    = nullptr;
         } mInputs;
 
         struct
@@ -78,7 +77,7 @@ namespace foray::asvgf {
         uint32_t mATrousLastArrayWriteIdx = 0;
         
         core::ManagedImage* mPrimaryOutput = nullptr;
-        uint32_t mDebugMode = DEBUG_TEMPACCU_OUTPUT;
+        uint32_t mDebugMode = DEBUG_NONE;
 
         CreateGradientSamplesStage mCreateGradientSamplesStage;
         ATrousGradientStage        mAtrousGradientStage;

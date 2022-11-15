@@ -14,6 +14,11 @@ namespace foray::asvgf {
         protected:
         ASvgfDenoiserStage* mASvgfStage = nullptr;
 
+        struct PushConstant{
+            uint32_t FrameIdx;
+            uint32_t DebugMode;
+        };
+
         virtual void ApiInitShader() override;
         virtual void ApiCreateDescriptorSet() override;
         virtual void ApiCreatePipelineLayout() override;

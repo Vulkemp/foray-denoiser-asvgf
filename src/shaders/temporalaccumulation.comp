@@ -158,6 +158,9 @@ void main() {
     if (summedWeight > PushC.WeightThreshhold)
     {
         // Alpha values: [0...1], where 0 == only history data, 1 == only new data
+        prevColor /= summedWeight;
+        prevMoments /= summedWeight;
+        historyLength /= summedWeight;
         
         float rawHistoryAlpha = 1.f / (historyLength + 1.f);
         float colorAlpha = max(PushC.MinNewDataWeight, rawHistoryAlpha);

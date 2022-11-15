@@ -12,6 +12,7 @@ namespace foray::asvgf {
     void CreateGradientSamplesStage::ApiInitShader()
     {
         mShader.LoadFromSource(mContext, SHADER_DIR "/creategradientsamples.comp");
+        mShaderSourcePaths.push_back(SHADER_DIR "/creategradientsamples.comp");
     }
     void CreateGradientSamplesStage::ApiCreateDescriptorSet()
     {
@@ -29,13 +30,11 @@ namespace foray::asvgf {
                                        VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
         mDescriptorSet.SetDescriptorAt(4, mASvgfStage->mInputs.MeshInstanceIdx, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                                        VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
-        mDescriptorSet.SetDescriptorAt(5, mASvgfStage->mInputs.NoiseTexture, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                                       VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
-        mDescriptorSet.SetDescriptorAt(6, mASvgfStage->mASvgfImages.LuminanceMaxDiff, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr,
+        mDescriptorSet.SetDescriptorAt(5, mASvgfStage->mASvgfImages.LuminanceMaxDiff, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr,
                                        VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
-        mDescriptorSet.SetDescriptorAt(7, mASvgfStage->mASvgfImages.MomentsAndLinearZ, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr,
+        mDescriptorSet.SetDescriptorAt(6, mASvgfStage->mASvgfImages.MomentsAndLinearZ, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr,
                                        VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
-        mDescriptorSet.SetDescriptorAt(8, mASvgfStage->mPrimaryOutput, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        mDescriptorSet.SetDescriptorAt(7, mASvgfStage->mPrimaryOutput, VkImageLayout::VK_IMAGE_LAYOUT_GENERAL, nullptr, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                                        VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
         if(mDescriptorSet.Exists())
         {
@@ -49,7 +48,7 @@ namespace foray::asvgf {
     void CreateGradientSamplesStage::ApiCreatePipelineLayout()
     {
         mPipelineLayout.AddDescriptorSetLayout(mDescriptorSet.GetDescriptorSetLayout());
-        mPipelineLayout.AddPushConstantRange<uint32_t>(VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
+        mPipelineLayout.AddPushConstantRange<PushConstant>(VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT);
         mPipelineLayout.Build(mContext);
     }
     void CreateGradientSamplesStage::ApiBeforeFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
@@ -58,7 +57,7 @@ namespace foray::asvgf {
 
         {  // Read Only Images
             std::vector<core::ManagedImage*> readOnlyImages({mASvgfStage->mInputs.PrimaryInput, &(mASvgfStage->mHistoryImages.PrimaryInput.GetHistoryImage()),
-                                                             mASvgfStage->mInputs.LinearZ, mASvgfStage->mInputs.MeshInstanceIdx, mASvgfStage->mInputs.NoiseTexture});
+                                                             mASvgfStage->mInputs.LinearZ, mASvgfStage->mInputs.MeshInstanceIdx});
 
             for(core::ManagedImage* image : readOnlyImages)
             {
@@ -113,8 +112,8 @@ namespace foray::asvgf {
     }
     void CreateGradientSamplesStage::ApiBeforeDispatch(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo, glm::uvec3& groupSize)
     {
-        uint32_t frameIdx = (uint32_t)renderInfo.GetFrameNumber();
-        vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(frameIdx), &frameIdx);
+        PushConstant pushC{(uint32_t)renderInfo.GetFrameNumber(), mASvgfStage->mDebugMode};
+        vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushC), &pushC);
 
         VkExtent3D size = mASvgfStage->mASvgfImages.LuminanceMaxDiff.GetExtent3D();
 

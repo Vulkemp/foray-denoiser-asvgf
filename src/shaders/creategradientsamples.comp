@@ -3,6 +3,7 @@
 #extension GL_GOOGLE_include_directive : enable
 
 #include "asvgf_shared.glsl"
+#include "debug.glsl.h"
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
@@ -17,18 +18,17 @@ layout(rg32f, binding = 3) uniform readonly image2D GbufferLinearZ;
 
 layout(r32ui, binding = 4) uniform readonly uimage2D GbufferMeshInstanceIdx;
 
-layout(r32ui, binding = 5) uniform readonly uimage2D NoiseTexture;
-
 //Outputs
-layout(rg32f, binding = 6) uniform writeonly image2DArray LuminanceMaxDiff;
+layout(rg32f, binding = 5) uniform writeonly image2DArray LuminanceMaxDiff;
 
-layout(rgba32f, binding = 7) uniform writeonly image2DArray MomentsAndLinearZ;
+layout(rgba32f, binding = 6) uniform writeonly image2DArray MomentsAndLinearZ;
 
-layout(rgba32f, binding = 8) uniform writeonly image2D DebugOutput;
+layout(rgba32f, binding = 7) uniform writeonly image2D DebugOutput;
 
 layout(push_constant) uniform push_constant_t
 {
     uint FrameIdx;
+	uint DebugMode;
 } PushC;
 
 const uint TILEMASK = (1 << 3) - 1;
@@ -37,6 +37,28 @@ const uint TILEMASK2 = (1 << 6) - 1;
 ivec2 CalculateTilePos(in uint seed)
 {
 	return ivec2((seed & TILEMASK), (seed >> STRATASIZE) & TILEMASK) % STRATASIZE;
+}
+
+// XTEA algorithm (public domain) https://www.cix.co.uk/~klockstone/xtea.pdf
+
+uint CalculateSeedXTEA(uint seed0, uint seed1)
+{
+	const uint num_rounds = 16;
+	const uint key[4] = {0x44DFD203, 0x7D5C4117, 0xAAC42FA6, 0x6F94B357};
+	uint sum = 0;
+	uint delta = 0x9E3779B9;
+	for (uint i = 0; i < num_rounds; i++)
+	{
+        seed0 += (((seed1 << 4) ^ (seed1 >> 5)) + seed1) ^ (sum + key[sum & 3]);
+        sum += delta;
+        seed1 += (((seed0 << 4) ^ (seed0 >> 5)) + seed0) ^ (sum + key[(sum>>11) & 3]);
+    }
+    return seed0 + seed1;
+}
+
+uint CalculateSeedXTEA(ivec2 texelPos, uint seed)
+{
+    return CalculateSeedXTEA((texelPos.x << 16) | texelPos.y, seed);
 }
 
 void main()
@@ -54,10 +76,7 @@ void main()
     uint seed;
 
     { // Generate new Seed Value
-		const uint noiseLoadIdx = strataPos.y * imageSize(LuminanceMaxDiff).x + strataPos.x + PushC.FrameIdx;
-		const uvec2 noiseTexSize = imageSize(NoiseTexture);
-		const ivec2 noiseLoadPos = ivec2((noiseLoadIdx / noiseTexSize.x) % noiseTexSize.y, noiseLoadIdx % noiseTexSize.x);
-		uint newSeed = imageLoad(NoiseTexture, noiseLoadPos).x;
+		uint newSeed = CalculateSeedXTEA(strataPos, PushC.FrameIdx);
 
         uint oldSeed = imageLoad(Seed, strataPos).x;
 
@@ -86,6 +105,10 @@ void main()
         float maxLuminance = max(luminance, prevLuminance);
 
         imageStore(LuminanceMaxDiff, ivec3(strataPos, 0), vec4(maxLuminance, luminance - prevLuminance, 0.0, 0.0));
+		if (PushC.DebugMode == DEBUG_CGS_LUMMAXDIFF)
+		{
+			imageStore(DebugOutput, strataPos, vec4(maxLuminance, luminance - prevLuminance, 0.0, 1.0));
+		}
     }
 
 	// A moment contains luminance + luminance^2 
@@ -134,5 +157,9 @@ void main()
 
 		// Store Moment + LinearZ combo texture
 		imageStore(MomentsAndLinearZ, ivec3(strataPos, 0), vec4(avgMoment.x, variance, linearZ.x, linearZ.y));
+		if (PushC.DebugMode == DEBUG_CGS_MOMENTSLINZ)
+		{
+			imageStore(DebugOutput, strataPos, vec4(avgMoment.x, variance, linearZ.x, linearZ.y));
+		}
 	}
 }

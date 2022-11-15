@@ -21,6 +21,7 @@ uint WriteIndex;
 layout(push_constant) uniform push_constant_t
 {
     uint IterationCount;
+    uint DebugMode;
 } PushC;
 
 // Information about the center (reference) pixel

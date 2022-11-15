@@ -3,6 +3,7 @@
 #extension GL_GOOGLE_include_directive : enable
 
 #include "asvgf_shared.glsl"
+#include "debug.glsl.h"
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
@@ -14,7 +15,7 @@ layout(rgba32f, binding = 1) uniform readonly image2D GbufferNormals;
 layout(rgba32f, binding = 2) uniform readonly image2D GbufferAlbedo;
 
 //Output
-layout(rgba32f, binding = 3) uniform image2DArray ColorTemporalVariance; //ReadWrite access
+layout(rgba32f, binding = 3) uniform coherent image2DArray ColorTemporalVariance; //ReadWrite access
 
 layout(rgba32f, binding = 4) uniform writeonly image2D OutputImage;
 
@@ -30,6 +31,7 @@ layout(push_constant) uniform push_constant_t
     uint IterationCount;
     uint ReadIdx;
     uint UsedKernel;
+    uint DebugMode;
 } PushC;
 
 // Information about the center (reference) pixel
@@ -271,6 +273,11 @@ vec4 aTrousIteration (uint iteration){
 
     // Calculate weighted average
 
+    if (PushC.DebugMode == DEBUG_VARIO)
+    {
+        imageStore(OutputImage, texelPos, vec4(sums.Weight / 200, 0, 0, 1));
+    }
+
     sums.Color /= sums.Weight;
     sums.Variance /= sums.Weight * sums.Weight;
 
@@ -304,5 +311,8 @@ void main() {
     // colorAndVariance.rgb *= imageLoad(GbufferAlbedo, texelPos).rgb;
     colorAndVariance.a = 1.0;
 
-    imageStore(OutputImage, texelPos, colorAndVariance);
+    if (PushC.DebugMode == DEBUG_NONE)
+    {
+        imageStore(OutputImage, texelPos, colorAndVariance);
+    }
 }

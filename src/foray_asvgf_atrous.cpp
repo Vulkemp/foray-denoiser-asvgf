@@ -21,7 +21,7 @@ namespace foray::asvgf {
 
     void ATrousStage::UpdateDescriptorSet()
     {
-        std::vector<core::ManagedImage*> images{mASvgfStage->mInputs.LinearZ, mASvgfStage->mInputs.Normal, mASvgfStage->mInputs.Albedo, &mASvgfStage->mAccumulatedImages.Color,
+        std::vector<core::ManagedImage*> images{mASvgfStage->mInputs.LinearZ, mASvgfStage->mInputs.Normal, mASvgfStage->mInputs.Albedo, &mASvgfStage->mATrousImage,
                                                 mASvgfStage->mPrimaryOutput};
 
         for(size_t i = 0; i < images.size(); i++)
@@ -81,7 +81,7 @@ namespace foray::asvgf {
         }
 
         {  // Write (+Read) Images
-            std::vector<core::ManagedImage*> images{&(mASvgfStage->mAccumulatedImages.Color)};
+            std::vector<core::ManagedImage*> images{&(mASvgfStage->mATrousImage)};
 
             for(core::ManagedImage* image : images)
             {
@@ -113,9 +113,9 @@ namespace foray::asvgf {
 
     void ATrousStage::ApiBeforeDispatch(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo, glm::uvec3& groupSize)
     {
-        mPushC                = PushConstant();
         mPushC.IterationCount = 5;
         mPushC.ReadIdx        = mASvgfStage->mATrousLastArrayWriteIdx;
+        mPushC.DebugMode      = mASvgfStage->mDebugMode;
         vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(mPushC), &mPushC);
 
         VkExtent3D size = mASvgfStage->mInputs.PrimaryInput->GetExtent3D();
