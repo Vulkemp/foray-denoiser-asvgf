@@ -3,6 +3,7 @@
 #extension GL_GOOGLE_include_directive : enable
 
 #include "asvgf_shared.glsl"
+#include "debug.glsl.h"
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
@@ -161,6 +162,11 @@ void aTrousIteration (uint iteration){
 
     imageStore(LuminanceMaxDiff, ivec3(texelPos, WriteIndex), vec4(sums.LuminanceMaxDiff, 0, 0));
     imageStore(MomentsAndLinearZ, ivec3(texelPos, WriteIndex), vec4(sums.Luminance, sums.Variance, momentsAndLinearZ.ba));
+
+    if (PushC.DebugMode == DEBUG_GSATROUS_RESERVED0 && iteration + 1 == PushC.IterationCount)
+    {
+        imageStore(DebugOutput, texelPos, vec4(sums.LuminanceMaxDiff, 0, 0));
+    }
 }
 
 void main() {
