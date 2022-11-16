@@ -25,6 +25,8 @@ layout(rgba32f, binding = 6) uniform writeonly image2DArray MomentsAndLinearZ;
 
 layout(rgba32f, binding = 7) uniform writeonly image2D DebugOutput;
 
+#include "debugstrata.glsl"
+
 layout(push_constant) uniform push_constant_t
 {
     uint FrameIdx;
@@ -107,7 +109,7 @@ void main()
         imageStore(LuminanceMaxDiff, ivec3(strataPos, 0), vec4(maxLuminance, luminance - prevLuminance, 0.0, 0.0));
 		if (PushC.DebugMode == DEBUG_CGS_LUMMAXDIFF)
 		{
-			imageStore(DebugOutput, strataPos, vec4(maxLuminance, luminance - prevLuminance, 0.0, 1.0));
+			DebugStoreStrata(strataPos, vec4(maxLuminance, luminance - prevLuminance, 0.0, 1.0));
 		}
     }
 
@@ -159,7 +161,7 @@ void main()
 		imageStore(MomentsAndLinearZ, ivec3(strataPos, 0), vec4(avgMoment.x, variance, linearZ.x, linearZ.y));
 		if (PushC.DebugMode == DEBUG_CGS_MOMENTSLINZ)
 		{
-			imageStore(DebugOutput, strataPos, vec4(avgMoment.x, variance, linearZ.x, linearZ.y));
+			DebugStoreStrata(strataPos, vec4(avgMoment.x, variance, linearZ.x, linearZ.y));
 		}
 	}
 }

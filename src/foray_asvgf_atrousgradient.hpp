@@ -10,20 +10,27 @@ namespace foray::asvgf {
         friend ASvgfDenoiserStage;
         public:
             void Init(ASvgfDenoiserStage* aSvgfStage);
+
+            void RecordFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo) override;
             
             void UpdateDescriptorSet();
         protected:
         ASvgfDenoiserStage* mASvgfStage = nullptr;
 
         struct PushConstant{
-            uint32_t IterationCount = 5;
+            uint32_t IterationIdx;
+            uint32_t ReadIdx;
+            uint32_t WriteIdx;
             uint32_t DebugMode = 0;
         } mPushC;
+
+        uint32_t mIterationCount = 5;
 
         virtual void ApiInitShader() override;
         virtual void ApiCreateDescriptorSet() override;
         virtual void ApiCreatePipelineLayout() override;
-        virtual void ApiBeforeFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo) override;
-        virtual void ApiBeforeDispatch(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo, glm::uvec3& groupSize) override;
+
+        virtual void BeforeIteration(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo);
+        virtual void DispatchIteration(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo);
     };
 }  // namespace foray::asvgf

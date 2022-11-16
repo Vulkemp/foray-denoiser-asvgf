@@ -47,8 +47,40 @@ namespace foray::asvgf {
         mPipelineLayout.Build(mContext);
     }
 
-    void ATrousStage::ApiBeforeFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
+    void ATrousStage::RecordFrame(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
     {
+        mContext->VkbDispatchTable->cmdBindPipeline(cmdBuffer, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_COMPUTE, mPipeline);
+
+        VkDescriptorSet descriptorSet = mDescriptorSet.GetDescriptorSet();
+
+        mContext->VkbDispatchTable->cmdBindDescriptorSets(cmdBuffer, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_COMPUTE, mPipelineLayout, 0U, 1U, &descriptorSet, 0U, nullptr);
+
+        // Reset PushC IterationIdx
+
+
+        for(uint32_t i = 0; i < mIterationCount; i++)
+        {
+            mPushC.IterationIdx = i;
+            if(i + 1 == mIterationCount)
+            {
+                mPushC.LastIteration = VK_TRUE;
+                mPushC.DebugMode     = mASvgfStage->mDebugMode;
+            }
+            else
+            {
+                mPushC.LastIteration = VK_FALSE;
+                mPushC.DebugMode     = DEBUG_NONE;
+            }
+            BeforeIteration(cmdBuffer, renderInfo);
+            DispatchIteration(cmdBuffer, renderInfo);
+        }
+    }
+
+    void ATrousStage::BeforeIteration(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
+    {
+        mPushC.ReadIdx  = (mPushC.IterationIdx + mASvgfStage->mATrousLastArrayWriteIdx) % 2;
+        mPushC.WriteIdx = (mPushC.IterationIdx + mASvgfStage->mATrousLastArrayWriteIdx + 1) % 2;
+
         std::vector<VkImageMemoryBarrier2> vkBarriers;
 
         {  // Read Only Images
@@ -85,14 +117,26 @@ namespace foray::asvgf {
 
             for(core::ManagedImage* image : images)
             {
-                core::ImageLayoutCache::Barrier2 barrier{
-                    .SrcStageMask     = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                    .SrcAccessMask    = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                    .DstStageMask     = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-                    .DstAccessMask    = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT,
-                    .NewLayout        = VkImageLayout::VK_IMAGE_LAYOUT_GENERAL,
-                    .SubresourceRange = VkImageSubresourceRange{.aspectMask = VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1U, .layerCount = 2U}};
-                vkBarriers.push_back(renderInfo.GetImageLayoutCache().MakeBarrier(image, barrier));
+                core::ImageLayoutCache::Barrier2 writeBarrier{.SrcStageMask     = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                                                              .SrcAccessMask    = VK_ACCESS_2_MEMORY_READ_BIT,
+                                                              .DstStageMask     = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                                              .DstAccessMask    = VK_ACCESS_2_SHADER_WRITE_BIT,
+                                                              .NewLayout        = VkImageLayout::VK_IMAGE_LAYOUT_GENERAL,
+                                                              .SubresourceRange = VkImageSubresourceRange{.aspectMask     = VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                                                          .levelCount     = 1U,
+                                                                                                          .baseArrayLayer = mPushC.WriteIdx,
+                                                                                                          .layerCount     = 1U}};
+                vkBarriers.push_back(renderInfo.GetImageLayoutCache().MakeBarrier(image, writeBarrier));
+                core::ImageLayoutCache::Barrier2 readBarrier{.SrcStageMask     = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                                                             .SrcAccessMask    = VK_ACCESS_2_MEMORY_WRITE_BIT,
+                                                             .DstStageMask     = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                                             .DstAccessMask    = VK_ACCESS_2_SHADER_READ_BIT,
+                                                             .NewLayout        = VkImageLayout::VK_IMAGE_LAYOUT_GENERAL,
+                                                             .SubresourceRange = VkImageSubresourceRange{.aspectMask     = VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                                                         .levelCount     = 1U,
+                                                                                                         .baseArrayLayer = mPushC.ReadIdx,
+                                                                                                         .layerCount     = 1U}};
+                vkBarriers.push_back(renderInfo.GetImageLayoutCache().MakeBarrier(image, readBarrier));
             }
 
             core::ImageLayoutCache::Barrier2 barrier{
@@ -111,19 +155,20 @@ namespace foray::asvgf {
         vkCmdPipelineBarrier2(cmdBuffer, &depInfo);
     }
 
-    void ATrousStage::ApiBeforeDispatch(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo, glm::uvec3& groupSize)
+    void ATrousStage::DispatchIteration(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
     {
-        mPushC.IterationCount = 5;
-        mPushC.ReadIdx        = mASvgfStage->mATrousLastArrayWriteIdx;
-        mPushC.DebugMode      = mASvgfStage->mDebugMode;
         vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(mPushC), &mPushC);
 
-        VkExtent3D size = mASvgfStage->mInputs.PrimaryInput->GetExtent3D();
+        glm::uvec3 groupSize;
+        {  // Calculate Group Size
+            VkExtent2D size = mASvgfStage->mPrimaryOutput->GetExtent2D();
 
-        glm::uvec2 localSize(16, 16);
-        glm::uvec2 FrameSize(size.width, size.height);
+            glm::uvec2 localSize(16, 16);
+            glm::uvec2 FrameSize(size.width, size.height);
 
-        groupSize = glm::uvec3((FrameSize.x + localSize.x - 1) / localSize.x, (FrameSize.y + localSize.y - 1) / localSize.y, 1);
+            groupSize = glm::uvec3((FrameSize.x + localSize.x - 1) / localSize.x, (FrameSize.y + localSize.y - 1) / localSize.y, 1);
+        }
+
+        mContext->VkbDispatchTable->cmdDispatch(cmdBuffer, groupSize.x, groupSize.y, groupSize.z);
     }
-
 }  // namespace foray::asvgf

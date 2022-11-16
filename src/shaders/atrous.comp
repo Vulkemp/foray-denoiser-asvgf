@@ -21,15 +21,12 @@ layout(rgba32f, binding = 4) uniform writeonly image2D OutputImage;
 
 layout(rgba32f, binding = 5) uniform writeonly image2D DebugOutput;
 
-// Texture read array index
-uint ReadIndex;
-// Texture write array index
-uint WriteIndex;
-
 layout(push_constant) uniform push_constant_t
 {
-    uint IterationCount;
+    uint IterationIdx;
     uint ReadIdx;
+    uint WriteIdx;
+    uint LastIteration;
     uint UsedKernel;
     uint DebugMode;
 } PushC;
@@ -73,7 +70,7 @@ void tap(in ivec2 offset, in float kernelWeight, in RefPixelInfo ref, inout Sums
 
     // Read values
 
-    vec4 color = imageLoad(ColorTemporalVariance, ivec3(tapTexelPos, ReadIndex));
+    vec4 color = imageLoad(ColorTemporalVariance, ivec3(tapTexelPos, PushC.ReadIdx));
     vec3 normal = imageLoad(GbufferNormals, tapTexelPos).rgb;
     float  linearZ = imageLoad(GbufferLinearZ, tapTexelPos).r; 
     float luminance = calcLuminance(color.rbg);
@@ -165,7 +162,7 @@ void subsampled(in RefPixelInfo ref, inout Sums sums)
 	| | |x| | |
 	*/
 
-	if((PushC.IterationCount & 1) == 0) {
+	if((PushC.IterationIdx & 1) == 0) {
 		/*
 		| | | | | |
 		| |x| |x| |
@@ -213,7 +210,7 @@ float calcSigmaLuminance(float luminanceVariance, ivec2 texelPos)
 		for(int x = -kernel; x <= kernel; x++) {
 			if(x != 0 || y != 0) {
 				ivec2 localPos = texelPos + ivec2(x, y);
-				float variance = imageLoad(ColorTemporalVariance, ivec3(localPos, ReadIndex)).a;
+				float variance = imageLoad(ColorTemporalVariance, ivec3(localPos, PushC.ReadIdx)).a;
 				float weight = gaussian_kernel[x + kernel][y + kernel];
 				sum += variance * weight;
 			}
@@ -223,18 +220,16 @@ float calcSigmaLuminance(float luminanceVariance, ivec2 texelPos)
 	return sqrt(max(sum, 0.0));
 }
 
-vec4 aTrousIteration (uint iteration){
-    // A trous uses an expanding filter, this is the filter step size
-    uint stepsize = 1 << iteration;
+void main() {
 
-    ReadIndex = (iteration + PushC.ReadIdx) % 2;
-    WriteIndex = (iteration + PushC.ReadIdx + 1) % 2;
+    // A trous uses an expanding filter, this is the filter step size
+    int stepsize = 1 << PushC.IterationIdx;
 
     ivec2 texelPos = ivec2(gl_GlobalInvocationID.xy);
 
     // Load Values
 
-    vec4 colorTemporalVariance = imageLoad(ColorTemporalVariance, ivec3(texelPos, ReadIndex));
+    vec4 colorTemporalVariance = imageLoad(ColorTemporalVariance, ivec3(texelPos, PushC.ReadIdx));
     vec3 normal = imageLoad(GbufferNormals, texelPos).rgb;
     vec2 linearZ = imageLoad(GbufferLinearZ, texelPos).rg;
     float luminance = calcLuminance(colorTemporalVariance.rgb);
@@ -247,6 +242,7 @@ vec4 aTrousIteration (uint iteration){
     ref.LinearZ = linearZ;
     ref.Luminance = luminance;
     ref.SigmaLuminance = sigmaLuminance;
+    ref.StepSize = stepsize;
 
     Sums sums;
     sums.Color = colorTemporalVariance.rgb;
@@ -275,7 +271,7 @@ vec4 aTrousIteration (uint iteration){
 
     if (PushC.DebugMode == DEBUG_VARIO)
     {
-        imageStore(OutputImage, texelPos, vec4(sums.Weight / 200, 0, 0, 1));
+        imageStore(OutputImage, texelPos, vec4(ref.SigmaLuminance * 10000, 0, 0, 1));
     }
 
     sums.Color /= sums.Weight;
@@ -283,36 +279,14 @@ vec4 aTrousIteration (uint iteration){
 
     // Store values
 
-    return vec4(sums.Color, sums.Variance);
-}
-
-void main() {
-    ivec2 texelPos = ivec2(gl_GlobalInvocationID.xy);
-
-    vec4 colorAndVariance = vec4(0);
-
-    for (uint i = 0; i < PushC.IterationCount; i++) {
-        // Calculate atrous iteration
-
-        colorAndVariance = aTrousIteration(i);
-
-        // In all but the very last iteration, wait for an image memory barrier
-
-        if (i + 1 < PushC.IterationCount)
-        {
-            imageStore(ColorTemporalVariance, ivec3(texelPos, WriteIndex), colorAndVariance);
-            barrier();
-            memoryBarrierImage();
-        }
-    }
-
-    // Modulate albedo
-
-    // colorAndVariance.rgb *= imageLoad(GbufferAlbedo, texelPos).rgb;
-    colorAndVariance.a = 1.0;
-
-    if (PushC.DebugMode == DEBUG_NONE)
+    if (PushC.LastIteration == 0)
     {
-        imageStore(OutputImage, texelPos, colorAndVariance);
+        imageStore(ColorTemporalVariance, ivec3(texelPos, PushC.WriteIdx), vec4(sums.Color, sums.Variance));
+    }
+    else if (PushC.DebugMode == DEBUG_NONE)
+    {
+        // TODO Remodulate Albedo
+        // sums.Color *= imageLoad(GbufferAlbedo, texelPos).rgb;
+        imageStore(OutputImage, texelPos, vec4(sums.Color, 1));
     }
 }

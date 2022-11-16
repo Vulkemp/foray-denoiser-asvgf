@@ -14,14 +14,13 @@ layout(rgba32f, binding = 1) uniform coherent image2DArray MomentsAndLinearZ;
 
 layout(rgba32f, binding = 2) uniform writeonly image2D DebugOutput;
 
-// Texture read array index
-uint ReadIndex;
-// Texture write array index
-uint WriteIndex;
+#include "debugstrata.glsl"
 
 layout(push_constant) uniform push_constant_t
 {
-    uint IterationCount;
+    uint IterationIdx;
+    uint ReadIdx;
+    uint WriteIdx;
     uint DebugMode;
 } PushC;
 
@@ -64,8 +63,8 @@ void tap(in ivec2 offset, in float kernelWeight, in RefPixelInfo ref, inout Sums
 
     // Read values
 
-    vec2  luminanceMaxDiff = imageLoad(LuminanceMaxDiff, ivec3(tapTexelPos, ReadIndex)).rg; 
-    vec4  momentsAndLinearZ = imageLoad(MomentsAndLinearZ,  ivec3(tapTexelPos, ReadIndex)); 
+    vec2  luminanceMaxDiff = imageLoad(LuminanceMaxDiff, ivec3(tapTexelPos, PushC.ReadIdx)).rg; 
+    vec4  momentsAndLinearZ = imageLoad(MomentsAndLinearZ,  ivec3(tapTexelPos, PushC.ReadIdx)); 
     float linearZ = momentsAndLinearZ.b;
     float luminance = momentsAndLinearZ.r;
 
@@ -112,7 +111,7 @@ float calcSigmaLuminance(float luminanceVariance, ivec2 texelPos)
 		for(int xx = -r; xx <= r; xx++) {
 			if(xx != 0 || yy != 0) {
 				ivec2 localPos = texelPos + ivec2(xx, yy);
-				float variance = imageLoad(MomentsAndLinearZ, ivec3(localPos, ReadIndex)).g;
+				float variance = imageLoad(MomentsAndLinearZ, ivec3(localPos, PushC.ReadIdx)).g;
 				float weight = gaussian_kernel[xx + 1][yy + 1];
 				sum += variance * weight;
 			}
@@ -122,25 +121,24 @@ float calcSigmaLuminance(float luminanceVariance, ivec2 texelPos)
 	return sqrt(max(sum, 0.0));
 }
 
-void aTrousIteration (uint iteration){
+void main() 
+{
     // A trous uses an expanding filter, this is the filter step size
-    uint stepsize = 1 << iteration;
-
-    ReadIndex = iteration % 2;
-    WriteIndex = (iteration + 1) % 2;
+    int stepsize = 1 << PushC.IterationIdx;
 
     ivec2 texelPos = ivec2(gl_GlobalInvocationID.xy);
 
     // Load Values
 
-    vec2 luminanceMaxDiff = imageLoad(LuminanceMaxDiff, ivec3(texelPos, ReadIndex)).rg;
-    vec4 momentsAndLinearZ = imageLoad(MomentsAndLinearZ, ivec3(texelPos, ReadIndex));
+    vec2 luminanceMaxDiff = imageLoad(LuminanceMaxDiff, ivec3(texelPos, PushC.ReadIdx)).rg;
+    vec4 momentsAndLinearZ = imageLoad(MomentsAndLinearZ, ivec3(texelPos, PushC.ReadIdx));
 
     RefPixelInfo ref;
     ref.TexelPos = texelPos;
     ref.Luminance = momentsAndLinearZ.r;
     ref.LinearZ = momentsAndLinearZ.ba;
     ref.SigmaLuminance = calcSigmaLuminance(momentsAndLinearZ.g, texelPos);
+    ref.StepSize = stepsize;
 
     Sums sums;
     sums.LuminanceMaxDiff = luminanceMaxDiff;
@@ -160,27 +158,15 @@ void aTrousIteration (uint iteration){
 
     // Store values
 
-    imageStore(LuminanceMaxDiff, ivec3(texelPos, WriteIndex), vec4(sums.LuminanceMaxDiff, 0, 0));
-    imageStore(MomentsAndLinearZ, ivec3(texelPos, WriteIndex), vec4(sums.Luminance, sums.Variance, momentsAndLinearZ.ba));
+    imageStore(LuminanceMaxDiff, ivec3(texelPos, PushC.WriteIdx), vec4(sums.LuminanceMaxDiff, 0, 0));
+    imageStore(MomentsAndLinearZ, ivec3(texelPos, PushC.WriteIdx), vec4(sums.Luminance, sums.Variance, momentsAndLinearZ.ba));
 
-    if (PushC.DebugMode == DEBUG_GSATROUS_RESERVED0 && iteration + 1 == PushC.IterationCount)
+    if (PushC.DebugMode == DEBUG_GSATROUS_RESERVED0)
     {
-        imageStore(DebugOutput, texelPos, vec4(sums.LuminanceMaxDiff, 0, 0));
+        DebugStoreStrata(texelPos, vec4(sums.LuminanceMaxDiff, 0, 1));
     }
-}
-
-void main() {
-    for (uint i = 0; i < PushC.IterationCount; i++) {
-        // Calculate atrous iteration
-
-        aTrousIteration(i);
-
-        // In all but the very last iteration, wait for an image memory barrier
-
-        if (i + 1 < PushC.IterationCount)
-        {
-            barrier();
-            memoryBarrierImage();
-        }
+    if (PushC.DebugMode == DEBUG_GSATROUS_RESERVED1)
+    {
+        DebugStoreStrata(texelPos, vec4(ref.SigmaLuminance * 50, 0, 0, 1));
     }
 }

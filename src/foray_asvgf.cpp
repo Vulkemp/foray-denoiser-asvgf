@@ -150,18 +150,18 @@ void ASvgfDenoiserStage::DisplayImguiConfiguration()
     }
     if (ImGui::CollapsingHeader("Gradient Samples Atrous Settings"))
     {
-        int iterations = (int)mAtrousGradientStage.mPushC.IterationCount;
+        int iterations = (int)mAtrousGradientStage.mIterationCount;
         if (ImGui::SliderInt("Iterations", &iterations, 1, 9))
         {
-            mAtrousGradientStage.mPushC.IterationCount = (uint32_t)iterations;
+            mAtrousGradientStage.mIterationCount = (uint32_t)iterations;
         }
     }
     if (ImGui::CollapsingHeader("Color Atrous Settings"))
     {
-        int iterations = (int)mAtrousStage.mPushC.IterationCount;
+        int iterations = (int)mAtrousStage.mIterationCount;
         if (ImGui::SliderInt("Iterations", &iterations, 1, 9))
         {
-            mAtrousStage.mPushC.IterationCount = (uint32_t)iterations;
+            mAtrousStage.mIterationCount = (uint32_t)iterations;
         }
         const char* atrousKernelModes[] = {"Box3", "Box5", "atrous", "subsampled"};
         int         atrousKernelIdx     = (int)mAtrousStage.mPushC.UsedKernel;
