@@ -8,22 +8,22 @@
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 //Inputs
-layout(rgba32f, binding = 0) uniform readonly image2D PrimaryInput;
+layout(rgba16f, binding = 0) uniform readonly image2D PrimaryInput;
 
 layout(r16ui, binding = 1) uniform uimage2D Seed; //ReadWrite access
 
-layout(rgba32f, binding = 2) uniform readonly image2D HistoryPrimaryInput;
+layout(rgba16f, binding = 2) uniform readonly image2D HistoryPrimaryInput;
 
-layout(rg32f, binding = 3) uniform readonly image2D GbufferLinearZ;
+layout(rg16f, binding = 3) uniform readonly image2D GbufferLinearZ;
 
-layout(r32ui, binding = 4) uniform readonly uimage2D GbufferMeshInstanceIdx;
+layout(r16ui, binding = 4) uniform readonly uimage2D GbufferMeshInstanceIdx;
 
 //Outputs
-layout(rg32f, binding = 5) uniform writeonly image2DArray LuminanceMaxDiff;
+layout(rg16f, binding = 5) uniform writeonly image2DArray LuminanceMaxDiff;
 
-layout(rgba32f, binding = 6) uniform writeonly image2DArray MomentsAndLinearZ;
+layout(rgba16f, binding = 6) uniform writeonly image2DArray MomentsAndLinearZ;
 
-layout(rgba32f, binding = 7) uniform writeonly image2D DebugOutput;
+layout(rgba16f, binding = 7) uniform writeonly image2D DebugOutput;
 
 #include "debugstrata.glsl"
 

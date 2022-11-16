@@ -8,18 +8,18 @@
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 //Inputs
-layout(rg32f, binding = 0) uniform readonly image2D GbufferLinearZ; 
+layout(rg16f, binding = 0) uniform readonly image2D GbufferLinearZ; 
 
-layout(rgba32f, binding = 1) uniform readonly image2D GbufferNormals;
+layout(rgba16f, binding = 1) uniform readonly image2D GbufferNormals;
 
-layout(rgba32f, binding = 2) uniform readonly image2D GbufferAlbedo;
+layout(rgba16f, binding = 2) uniform readonly image2D GbufferAlbedo;
 
 //Output
-layout(rgba32f, binding = 3) uniform coherent image2DArray ColorTemporalVariance; //ReadWrite access
+layout(rgba16f, binding = 3) uniform coherent image2DArray ColorTemporalVariance; //ReadWrite access
 
-layout(rgba32f, binding = 4) uniform writeonly image2D OutputImage;
+layout(rgba16f, binding = 4) uniform writeonly image2D OutputImage;
 
-layout(rgba32f, binding = 5) uniform writeonly image2D DebugOutput;
+layout(rgba16f, binding = 5) uniform writeonly image2D DebugOutput;
 
 layout(push_constant) uniform push_constant_t
 {

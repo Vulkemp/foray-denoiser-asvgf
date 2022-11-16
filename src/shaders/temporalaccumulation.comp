@@ -9,32 +9,32 @@
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 //Inputs
-layout(rgba32f, binding = 0) uniform readonly image2D PrimaryInput;
+layout(rgba16f, binding = 0) uniform readonly image2D PrimaryInput;
 
-layout(rg32f, binding = 1) uniform readonly image2D GbufferMotionVec;
+layout(rg16f, binding = 1) uniform readonly image2D GbufferMotionVec;
 
-layout(rg32f, binding = 2) uniform readonly image2D GbufferLinearZ;
+layout(rg16f, binding = 2) uniform readonly image2D GbufferLinearZ;
 
-layout(rg32f, binding = 3) uniform readonly image2D HistoryGbufferLinearZ;
+layout(rg16f, binding = 3) uniform readonly image2D HistoryGbufferLinearZ;
 
-layout(rgba32f, binding = 4) uniform readonly image2D GbufferNormals;
+layout(rgba16f, binding = 4) uniform readonly image2D GbufferNormals;
 
-layout(rgba32f, binding = 5) uniform readonly image2D HistoryGbufferNormals;
+layout(rgba16f, binding = 5) uniform readonly image2D HistoryGbufferNormals;
 
-layout(r32ui, binding = 6) uniform readonly uimage2D GbufferMeshInstanceIdx;
+layout(r16ui, binding = 6) uniform readonly uimage2D GbufferMeshInstanceIdx;
 
-layout(r32ui, binding = 7) uniform readonly uimage2D HistoryGbufferMeshInstanceIdx;
+layout(r16ui, binding = 7) uniform readonly uimage2D HistoryGbufferMeshInstanceIdx;
 
 //Output
-layout(rgba32f, binding = 8) uniform image2DArray AccumulatedColor; //ReadWrite access
+layout(rgba16f, binding = 8) uniform image2DArray AccumulatedColor; //ReadWrite access
 
-layout(rg32f, binding = 9) uniform image2DArray AccumulatedMoments; //ReadWrite access
+layout(rg16f, binding = 9) uniform image2DArray AccumulatedMoments; //ReadWrite access
 
-layout(r32f, binding = 10) uniform image2DArray AccumulatedHistoryLength; //ReadWrite access
+layout(r16f, binding = 10) uniform image2DArray AccumulatedHistoryLength; //ReadWrite access
 
-layout(rg32f, binding = 11) uniform readonly image2DArray LuminanceMaxDiff;
+layout(rg16f, binding = 11) uniform readonly image2DArray LuminanceMaxDiff;
 
-layout(rgba32f, binding = 12) uniform writeonly image2D DebugOutput;
+layout(rgba16f, binding = 12) uniform writeonly image2D DebugOutput;
 
 layout(push_constant) uniform push_constant_t
 {

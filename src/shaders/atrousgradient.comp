@@ -8,11 +8,11 @@
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 //Inputs / Outputs
-layout(rg32f, binding = 0) uniform coherent image2DArray LuminanceMaxDiff;
+layout(rg16f, binding = 0) uniform coherent image2DArray LuminanceMaxDiff;
 
-layout(rgba32f, binding = 1) uniform coherent image2DArray MomentsAndLinearZ;
+layout(rgba16f, binding = 1) uniform coherent image2DArray MomentsAndLinearZ;
 
-layout(rgba32f, binding = 2) uniform writeonly image2D DebugOutput;
+layout(rgba16f, binding = 2) uniform writeonly image2D DebugOutput;
 
 #include "debugstrata.glsl"
 
