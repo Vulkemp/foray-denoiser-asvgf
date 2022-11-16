@@ -1,4 +1,5 @@
 #include "foray_asvgf.hpp"
+#include <bench/foray_devicebenchmark.hpp>
 #include <imgui/imgui.h>
 #include <nameof/nameof.hpp>
 #include <spdlog/fmt/fmt.h>
@@ -26,17 +27,25 @@ namespace foray::asvgf {
         VkExtent2D renderSize  = mInputs.PrimaryInput->GetExtent2D();
         VkExtent2D strataCount = CalculateStrataCount(mContext->GetSwapchainSize());
 
+        mBenchmark = config.Benchmark;
+        if(!!mBenchmark)
+        {
+            std::vector<const char*> queryNames({bench::BenchmarkTimestamp::BEGIN, TIMESTAMP_CreateGradientSamples, TIMESTAMP_ATrousGradient, TIMESTAMP_TemporalAccumulation,
+                                                 TIMESTAMP_EstimateVariance, TIMESTAMP_ATrousColor, bench::BenchmarkTimestamp::END});
+            mBenchmark->Create(mContext, queryNames);
+        }
+
         VkImageUsageFlags usageFlags = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_SAMPLED_BIT;
         {  // Create ASvgf Stage owned Images
 
-            core::ManagedImage::CreateInfo ci(usageFlags, VkFormat::VK_FORMAT_R32G32_SFLOAT, strataCount, "ASvgf.LuminanceMaxDiff");
+            core::ManagedImage::CreateInfo ci(usageFlags, VkFormat::VK_FORMAT_R16G16_SFLOAT, strataCount, "ASvgf.LuminanceMaxDiff");
             ci.ImageCI.arrayLayers                     = 2;
             ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
             ci.ImageViewCI.subresourceRange.layerCount = 2U;
             mASvgfImages.LuminanceMaxDiff.Create(mContext, ci);
         }
         {
-            core::ManagedImage::CreateInfo ci(usageFlags, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, strataCount, "ASvgf.MomentsAndLinearZ");
+            core::ManagedImage::CreateInfo ci(usageFlags, VkFormat::VK_FORMAT_R16G16B16A16_SFLOAT, strataCount, "ASvgf.MomentsAndLinearZ");
             ci.ImageCI.arrayLayers                     = 2;
             ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
             ci.ImageViewCI.subresourceRange.layerCount = 2U;
@@ -64,7 +73,7 @@ namespace foray::asvgf {
         { // Create Accumulation Images
          {// Accumulated Color
           VkImageUsageFlags usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, renderSize, "ASvgf.Accu.Color");
+        core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R16G16B16A16_SFLOAT, renderSize, "ASvgf.Accu.Color");
         ci.ImageCI.arrayLayers                     = 2;
         ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
         ci.ImageViewCI.subresourceRange.layerCount = 2U;
@@ -72,7 +81,7 @@ namespace foray::asvgf {
     }
     {  // Accumulated Moments
         VkImageUsageFlags              usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32G32_SFLOAT, renderSize, "ASvgf.Accu.Moments");
+        core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R16G16_SFLOAT, renderSize, "ASvgf.Accu.Moments");
         ci.ImageCI.arrayLayers                     = 2;
         ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
         ci.ImageViewCI.subresourceRange.layerCount = 2U;
@@ -80,7 +89,7 @@ namespace foray::asvgf {
     }
     {  // Accumulated History
         VkImageUsageFlags              usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32_SFLOAT, renderSize, "ASvgf.Accu.HistoryLength");
+        core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R16_SFLOAT, renderSize, "ASvgf.Accu.HistoryLength");
         ci.ImageCI.arrayLayers                     = 2;
         ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
         ci.ImageViewCI.subresourceRange.layerCount = 2U;
@@ -90,7 +99,7 @@ namespace foray::asvgf {
 
 {
     VkImageUsageFlags              usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT;
-    core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, renderSize, "ASvgf.ATrous");
+    core::ManagedImage::CreateInfo ci(usage, VkFormat::VK_FORMAT_R16G16B16A16_SFLOAT, renderSize, "ASvgf.ATrous");
     ci.ImageCI.arrayLayers                     = 2;
     ci.ImageViewCI.viewType                    = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
     ci.ImageViewCI.subresourceRange.layerCount = 2U;
@@ -114,14 +123,46 @@ void ASvgfDenoiserStage::RecordFrame(VkCommandBuffer cmdBuffer, base::FrameRende
         renderInfo.GetImageLayoutCache().Set(mHistoryImages.Normal, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     }
 
+    uint32_t                frameIdx = renderInfo.GetFrameNumber();
+    VkPipelineStageFlagBits compute  = VkPipelineStageFlagBits::VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+    if(!!mBenchmark)
+    {
+        mBenchmark->CmdResetQuery(cmdBuffer, frameIdx);
+        mBenchmark->CmdWriteTimestamp(cmdBuffer, frameIdx, bench::BenchmarkTimestamp::BEGIN, compute);
+    }
     mCreateGradientSamplesStage.RecordFrame(cmdBuffer, renderInfo);
+    if(!!mBenchmark)
+    {
+        mBenchmark->CmdWriteTimestamp(cmdBuffer, frameIdx, TIMESTAMP_CreateGradientSamples, compute);
+    }
     mAtrousGradientStage.RecordFrame(cmdBuffer, renderInfo);
+    if(!!mBenchmark)
+    {
+        mBenchmark->CmdWriteTimestamp(cmdBuffer, frameIdx, TIMESTAMP_ATrousGradient, compute);
+    }
     mTemporalAccumulationStage.RecordFrame(cmdBuffer, renderInfo);
+    if(!!mBenchmark)
+    {
+        mBenchmark->CmdWriteTimestamp(cmdBuffer, frameIdx, TIMESTAMP_TemporalAccumulation, compute);
+    }
     mEstimateVarianceStage.RecordFrame(cmdBuffer, renderInfo);
+    if(!!mBenchmark)
+    {
+        mBenchmark->CmdWriteTimestamp(cmdBuffer, frameIdx, TIMESTAMP_EstimateVariance, compute);
+    }
     mAtrousStage.RecordFrame(cmdBuffer, renderInfo);
+    if(!!mBenchmark)
+    {
+        mBenchmark->CmdWriteTimestamp(cmdBuffer, frameIdx, TIMESTAMP_ATrousColor, VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT);
+    }
 
     CopyToHistory(cmdBuffer, renderInfo);
     mHistoryImages.Valid = true;
+    if(!!mBenchmark)
+    {
+        mBenchmark->CmdWriteTimestamp(cmdBuffer, frameIdx, bench::BenchmarkTimestamp::END, VkPipelineStageFlagBits::VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+    }
 }
 
 void ASvgfDenoiserStage::CopyToHistory(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
@@ -148,18 +189,18 @@ void ASvgfDenoiserStage::DisplayImguiConfiguration()
     {
         mDebugMode = (uint32_t)debugMode;
     }
-    if (ImGui::CollapsingHeader("Gradient Samples Atrous Settings"))
+    if(ImGui::CollapsingHeader("Gradient Samples ATrous Settings"))
     {
         int iterations = (int)mAtrousGradientStage.mIterationCount;
-        if (ImGui::SliderInt("Iterations", &iterations, 1, 9))
+        if(ImGui::SliderInt("Gradient Samples ATrous Iterations", &iterations, 1, 15))
         {
             mAtrousGradientStage.mIterationCount = (uint32_t)iterations;
         }
     }
-    if (ImGui::CollapsingHeader("Color Atrous Settings"))
+    if(ImGui::CollapsingHeader("Color Atrous Settings"))
     {
         int iterations = (int)mAtrousStage.mIterationCount;
-        if (ImGui::SliderInt("Iterations", &iterations, 1, 9))
+        if(ImGui::SliderInt("Color ATrous Iterations", &iterations, 1, 15))
         {
             mAtrousStage.mIterationCount = (uint32_t)iterations;
         }
@@ -252,6 +293,12 @@ void ASvgfDenoiserStage::Destroy()
     for(stages::RenderStage* stage : stages)
     {
         stage->Destroy();
+    }
+
+    if (!!mBenchmark)
+    {
+        mBenchmark->Destroy();
+        mBenchmark = nullptr;
     }
 }
 

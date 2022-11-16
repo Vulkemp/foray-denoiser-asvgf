@@ -79,12 +79,19 @@ namespace foray::asvgf {
         core::ManagedImage* mPrimaryOutput = nullptr;
         uint32_t mDebugMode = DEBUG_NONE;
 
+        bench::DeviceBenchmark* mBenchmark = nullptr;
+
         CreateGradientSamplesStage mCreateGradientSamplesStage;
         ATrousGradientStage        mAtrousGradientStage;
         TemporalAccumulationStage  mTemporalAccumulationStage;
         EstimateVarianceStage      mEstimateVarianceStage;
         ATrousStage                mAtrousStage;
 
+        inline static const char* TIMESTAMP_CreateGradientSamples = "CreateGradientSamples";
+        inline static const char* TIMESTAMP_ATrousGradient = "ATrousGradient";
+        inline static const char* TIMESTAMP_TemporalAccumulation = "TemporalAccumulation";
+        inline static const char* TIMESTAMP_EstimateVariance = "EstimateVariance";
+        inline static const char* TIMESTAMP_ATrousColor = "ATrousColor";
 
         VkExtent2D CalculateStrataCount(const VkExtent2D& extent);
 
