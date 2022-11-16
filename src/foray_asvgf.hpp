@@ -87,6 +87,8 @@ namespace foray::asvgf {
         EstimateVarianceStage      mEstimateVarianceStage;
         ATrousStage                mAtrousStage;
 
+        bool mInitialized = false;
+
         inline static const char* TIMESTAMP_CreateGradientSamples = "CreateGradientSamples";
         inline static const char* TIMESTAMP_ATrousGradient = "ATrousGradient";
         inline static const char* TIMESTAMP_TemporalAccumulation = "TemporalAccumulation";
