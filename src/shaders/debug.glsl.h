@@ -1,3 +1,5 @@
+#ifndef DEBUG_GLSL
+#define DEBUG_GLSL
 #ifdef __cplusplus
 #pragma once
 
@@ -19,3 +21,4 @@ namespace foray::asvgf
 } // namespace foray::asvgf
 #endif
 
+#endif // DEBUG_GLSL
