@@ -22,8 +22,8 @@ namespace foray::asvgf {
     {
         std::vector<core::ManagedImage*> images{mASvgfStage->mInputs.PrimaryInput,
                                                 mASvgfStage->mInputs.Motion,
-                                                mASvgfStage->mInputs.LinearZ,
-                                                &mASvgfStage->mHistoryImages.LinearZ.GetHistoryImage(),
+                                                mASvgfStage->mInputs.Positions,
+                                                &mASvgfStage->mHistoryImages.Positions.GetHistoryImage(),
                                                 mASvgfStage->mInputs.Normal,
                                                 &mASvgfStage->mHistoryImages.Normal.GetHistoryImage(),
                                                 mASvgfStage->mInputs.MeshInstanceIdx,
@@ -62,8 +62,8 @@ namespace foray::asvgf {
         std::vector<VkImageMemoryBarrier2> vkBarriers;
 
         {  // Read Only Images
-            std::vector<core::ManagedImage*> readOnlyImages({mASvgfStage->mInputs.PrimaryInput, mASvgfStage->mInputs.Motion, mASvgfStage->mInputs.LinearZ,
-                                                             &mASvgfStage->mHistoryImages.LinearZ.GetHistoryImage(), mASvgfStage->mInputs.Normal,
+            std::vector<core::ManagedImage*> readOnlyImages({mASvgfStage->mInputs.PrimaryInput, mASvgfStage->mInputs.Motion, mASvgfStage->mInputs.Positions,
+                                                             &mASvgfStage->mHistoryImages.Positions.GetHistoryImage(), mASvgfStage->mInputs.Normal, mASvgfStage->mInputs.Normal,
                                                              &mASvgfStage->mHistoryImages.Normal.GetHistoryImage(), mASvgfStage->mInputs.MeshInstanceIdx,
                                                              &mASvgfStage->mHistoryImages.MeshInstanceIdx.GetHistoryImage()});
 
@@ -95,7 +95,7 @@ namespace foray::asvgf {
                 .DstAccessMask    = VK_ACCESS_2_SHADER_READ_BIT,
                 .NewLayout        = VkImageLayout::VK_IMAGE_LAYOUT_GENERAL,
                 .SubresourceRange = VkImageSubresourceRange{.aspectMask = VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1U, .layerCount = 2U}};
-        vkBarriers.push_back(renderInfo.GetImageLayoutCache().MakeBarrier(&mASvgfStage->mASvgfImages.LuminanceMaxDiff, barrier));
+            vkBarriers.push_back(renderInfo.GetImageLayoutCache().MakeBarrier(&mASvgfStage->mASvgfImages.LuminanceMaxDiff, barrier));
         }
         {  // Write (+Read) Images
             std::vector<core::ManagedImage*> images{&(mASvgfStage->mAccumulatedImages.Color), &(mASvgfStage->mAccumulatedImages.Moments),
@@ -122,12 +122,12 @@ namespace foray::asvgf {
 
     void TemporalAccumulationStage::ApiBeforeDispatch(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo, glm::uvec3& groupSize)
     {
-        PushConstant pushC            = PushConstant();
-        pushC.ReadIdx                 = renderInfo.GetFrameNumber() % 2;
-        pushC.WriteIdx                = (renderInfo.GetFrameNumber() + 1) % 2;
-        pushC.LuminanceMaxDiffReadIdx = mASvgfStage->mASvgfImages.LastArrayWriteIdx;
-        pushC.EnableHistory           = mASvgfStage->mHistoryImages.Valid;
-        pushC.DebugOutputMode         = mASvgfStage->mDebugMode;
+        PushConstant pushC                                = PushConstant();
+        pushC.ReadIdx                                     = renderInfo.GetFrameNumber() % 2;
+        pushC.WriteIdx                                    = (renderInfo.GetFrameNumber() + 1) % 2;
+        pushC.LuminanceMaxDiffReadIdx                     = mASvgfStage->mASvgfImages.LastArrayWriteIdx;
+        pushC.EnableHistory                               = mASvgfStage->mHistoryImages.Valid;
+        pushC.DebugOutputMode                             = mASvgfStage->mDebugMode;
         mASvgfStage->mAccumulatedImages.LastArrayWriteIdx = pushC.WriteIdx;
         vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushC), &pushC);
 

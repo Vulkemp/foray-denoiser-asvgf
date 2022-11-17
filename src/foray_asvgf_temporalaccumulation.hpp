@@ -24,7 +24,7 @@ namespace foray::asvgf {
             // Maximum deviation of the sinus of previous and current normal (Default 0.05)
             fp32_t MaxNormalDeviation = 0.05f;
             // Deviation multiplier (Default 1.0)
-            fp32_t DepthDeviationToleranceMultiplier = 1.f;
+            fp32_t MaxPositionDifference = 0.25f;
             // Combined Weight Threshhold (Default 0.01)
             fp32_t WeightThreshhold = 0.01f;
             // Minimum weight assigned to new data

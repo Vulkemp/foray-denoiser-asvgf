@@ -13,9 +13,9 @@ layout(rgba16f, binding = 0) uniform readonly image2D PrimaryInput;
 
 layout(rg16f, binding = 1) uniform readonly image2D GbufferMotionVec;
 
-layout(rg16f, binding = 2) uniform readonly image2D GbufferLinearZ;
+layout(rg16f, binding = 2) uniform readonly image2D GbufferPositions;
 
-layout(rg16f, binding = 3) uniform readonly image2D HistoryGbufferLinearZ;
+layout(rg16f, binding = 3) uniform readonly image2D HistoryGbufferPositions;
 
 layout(rgba16f, binding = 4) uniform readonly image2D GbufferNormals;
 
@@ -43,7 +43,7 @@ layout(push_constant) uniform push_constant_t
     // Write array index
     uint WriteIdx;
     // Maximum deviation of the sinus of previous and current normal (Default 0.05)
-    float MaxNormalDeviation;
+    float MaxPositionDifference;
     // Deviation multiplier (Default 1.0)
     float DepthDeviationToleranceMultiplier;
     // Combined Weight Threshhold (Default 0.01)
@@ -62,35 +62,37 @@ bool testInsideScreen(in ivec2 samplePos, in ivec2 renderSize)
 
 bool testNormalDeviation(in vec3 currNormal, in vec3 prevNormal)
 {
-    return (1 - dot(currNormal, prevNormal)) <= PushC.MaxNormalDeviation;
+    return (1 - dot(currNormal, prevNormal)) <= PushC.MaxPositionDifference;
 }
 
-//bool testDepthDeviation(in float currDepth, in float prevDepth, in float currDepthGradient)
-//{
-//    // TODO: Make sure the source material was actually wrong
-//    float diff = abs(currDepth - prevDepth);
-//    float tolerance = 20.0 * (currDepthGradient + 1e-3) * PushC.DepthDeviationToleranceMultiplier;
-//    return diff < tolerance;
-//}
+bool testPositions(in vec3 currPositions, in vec3 prevPositions)
+{
+    vec3 difference = prevPositions - currPositions;
+
+    float maxDiffSquared = PushC.MaxPositionDifference * PushC.MaxPositionDifference;
+
+    return dot(difference, difference) < maxDiffSquared;
+}
 
 void main() {
-    ivec2 currPos = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 currTexel = ivec2(gl_GlobalInvocationID.xy);
 
     ivec2 renderSize = imageSize(GbufferMotionVec);
 
-    vec2 motionVec = imageLoad(GbufferMotionVec, currPos).xy;
+    vec2 motionVec = imageLoad(GbufferMotionVec, currTexel).xy;
 
-    vec2 prevPos = currPos + motionVec * imageSize(HistoryGbufferLinearZ).xy;
+    vec2 prevTexel = currTexel + motionVec * imageSize(PrimaryInput).xy;
+    
+    vec3 position = imageLoad(GbufferPositions, currTexel).xyz;
 
-    vec2 prevPosSubPixel = fract(prevPos);
+    vec2 prevPosSubPixel = fract(prevTexel);
 
-    vec2 currLinearZ = imageLoad(GbufferLinearZ, currPos).rg;
+    vec3 currColor = imageLoad(PrimaryInput, currTexel).rgb;
 
-    vec3 currColor = imageLoad(PrimaryInput, currPos).rgb;
+    vec3 currNormal = imageLoad(GbufferNormals, currTexel).rgb;
 
-    vec3 currNormal = imageLoad(GbufferNormals, currPos).rgb;
 
-    uint meshInstanceIdx = imageLoad(GbufferMeshInstanceIdx, currPos).x;
+    uint meshInstanceIdx = imageLoad(GbufferMeshInstanceIdx, currTexel).x;
 
     float luminance = calcLuminance(currColor);
 
@@ -105,15 +107,15 @@ void main() {
     { // Read history data w/ bilinear interpolation
     	for(int y = 0; y <= 1; y++) {
     		for(int x = 0; x <= 1; x++) {
-    			ivec2 samplePos    = ivec2(prevPos + ivec2(x, y));
-    			float prevDepth    = imageLoad(HistoryGbufferLinearZ, samplePos).r;
+    			ivec2 samplePos    = ivec2(prevTexel + ivec2(x, y));
+    			vec3 prevPosition    = imageLoad(HistoryGbufferPositions, samplePos).xyz;
     			vec3  prevNormal   = imageLoad(HistoryGbufferNormals, samplePos).rgb;
     			uint prevMeshInstanceIdx  = imageLoad(HistoryGbufferMeshInstanceIdx, samplePos).x;
 
     			bool accept = true;
     			accept = accept && testInsideScreen(samplePos, renderSize); // discard outside viewport
-    			accept = accept && testNormalDeviation(currNormal, prevNormal); // discard if normal deviates too far (18 degrees max)
-                //ToDo HopeSuffers: World space position test instead of Depth test
+    			accept = accept && testNormalDeviation(currNormal, prevNormal); // discard if normal deviates too far (18 degrees max)     
+                accept = accept && testPositions(position, prevPosition); // Discard if world space positions differ to much
     			accept = accept && meshInstanceIdx == prevMeshInstanceIdx; // Check mesh id
 
     			if(accept) {
@@ -136,7 +138,7 @@ void main() {
 
         for(int y = -gradientFilterRadius; y <= gradientFilterRadius; y++) {
 			for(int x = -gradientFilterRadius; x <= gradientFilterRadius; x++) {
-                ivec3 samplePos = ivec3(currPos / STRATASIZE + ivec2(x, y), PushC.LuminanceMaxDiffReadIdx);
+                ivec3 samplePos = ivec3(currTexel / STRATASIZE + ivec2(x, y), PushC.LuminanceMaxDiffReadIdx);
                 vec2 luminanceMaxDiff = imageLoad(LuminanceMaxDiff, samplePos).rg;
                 float lumMax = luminanceMaxDiff.r;
                 float lumDiff = luminanceMaxDiff.g;
@@ -170,36 +172,36 @@ void main() {
         momentsAlpha = mix(momentsAlpha, 1.0, antilagAlpha);
 
         vec4 accuColorPlusHistlen = vec4(mix(prevColor, currColor, colorAlpha), historyLength + 1.f);
-        imageStore(AccumulatedColor, ivec3(currPos, PushC.WriteIdx), accuColorPlusHistlen);
+        imageStore(AccumulatedColor, ivec3(currTexel, PushC.WriteIdx), accuColorPlusHistlen);
         vec4 accuMoments = vec4(mix(prevMoments, currMoments, momentsAlpha), 0, 0);
-        imageStore(AccumulatedMoments, ivec3(currPos, PushC.WriteIdx), accuMoments);
+        imageStore(AccumulatedMoments, ivec3(currTexel, PushC.WriteIdx), accuMoments);
         historyLength = min(64, historyLength + 1.f);
-        imageStore(AccumulatedHistoryLength, ivec3(currPos, PushC.WriteIdx), vec4(historyLength, 0, 0, 0));
+        imageStore(AccumulatedHistoryLength, ivec3(currTexel, PushC.WriteIdx), vec4(historyLength, 0, 0, 0));
         if (PushC.DebugMode == DEBUG_TEMPACCU_OUTPUT)
         {
-            imageStore(DebugOutput, currPos, vec4(mix(prevColor, currColor, colorAlpha), 1.f));
+            imageStore(DebugOutput, currTexel, vec4(mix(prevColor, currColor, colorAlpha), 1.f));
         }
         if (PushC.DebugMode == DEBUG_TEMPACCU_ALPHA)
         {
-            imageStore(DebugOutput, currPos, vec4(colorAlpha, momentsAlpha, 0.f, 1.f));
+            imageStore(DebugOutput, currTexel, vec4(colorAlpha, momentsAlpha, 0.f, 1.f));
         }
     }
     else
     {
-        imageStore(AccumulatedColor, ivec3(currPos, PushC.WriteIdx), vec4(currColor, 1.f));
-        imageStore(AccumulatedMoments, ivec3(currPos, PushC.WriteIdx), vec4(currMoments, 0, 0));
-        imageStore(AccumulatedHistoryLength, ivec3(currPos, PushC.WriteIdx), vec4(1.f, 0, 0, 0));
+        imageStore(AccumulatedColor, ivec3(currTexel, PushC.WriteIdx), vec4(currColor, 1.f));
+        imageStore(AccumulatedMoments, ivec3(currTexel, PushC.WriteIdx), vec4(currMoments, 0, 0));
+        imageStore(AccumulatedHistoryLength, ivec3(currTexel, PushC.WriteIdx), vec4(1.f, 0, 0, 0));
         if (PushC.DebugMode == DEBUG_TEMPACCU_OUTPUT)
         {
-            imageStore(DebugOutput, currPos, vec4(currColor, 1.f));
+            imageStore(DebugOutput, currTexel, vec4(currColor, 1.f));
         }
         if (PushC.DebugMode == DEBUG_TEMPACCU_ALPHA)
         {
-            imageStore(DebugOutput, currPos, vec4(0.f, 0.f, 0.f, 1.f));
+            imageStore(DebugOutput, currTexel, vec4(0.f, 0.f, 0.f, 1.f));
         }
     }
     if (PushC.DebugMode == DEBUG_TEMPACCU_WEIGHTS)
     {
-        imageStore(DebugOutput, currPos, vec4(summedWeight / 10, 0, 0, 1));
+        imageStore(DebugOutput, currTexel, vec4(summedWeight / 10, 0, 0, 1));
     }
 }

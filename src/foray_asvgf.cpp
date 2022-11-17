@@ -19,6 +19,8 @@ namespace foray::asvgf {
         Assert(!!mInputs.LinearZ);
         mInputs.MeshInstanceIdx = config.GBufferOutputs[(size_t)stages::GBufferStage::EOutput::MeshInstanceIdx];
         Assert(!!mInputs.MeshInstanceIdx);
+        mInputs.Positions = config.GBufferOutputs[(size_t)stages::GBufferStage::EOutput::Position];
+        Assert(!!mInputs.Positions);
         mInputs.PrimaryInput = config.PrimaryInput;
         Assert(!!mInputs.PrimaryInput);
         mPrimaryOutput = config.PrimaryOutput;
@@ -58,8 +60,8 @@ namespace foray::asvgf {
         }
 
         {  // Create History Images
-            std::vector<core::ManagedImage*> srcImages{mInputs.LinearZ, mInputs.MeshInstanceIdx, mInputs.Normal, mInputs.PrimaryInput};
-            std::vector<util::HistoryImage*> historyImages{&mHistoryImages.LinearZ, &mHistoryImages.MeshInstanceIdx, &mHistoryImages.Normal, &mHistoryImages.PrimaryInput};
+            std::vector<core::ManagedImage*> srcImages{mInputs.LinearZ, mInputs.MeshInstanceIdx, mInputs.Normal, mInputs.PrimaryInput, mInputs.Positions};
+            std::vector<util::HistoryImage*> historyImages{&mHistoryImages.LinearZ, &mHistoryImages.MeshInstanceIdx, &mHistoryImages.Normal, &mHistoryImages.PrimaryInput, &mHistoryImages.Positions};
 
             for(int32_t i = 0; i < historyImages.size(); i++)
             {
@@ -122,6 +124,7 @@ namespace foray::asvgf {
             renderInfo.GetImageLayoutCache().Set(mHistoryImages.LinearZ, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
             renderInfo.GetImageLayoutCache().Set(mHistoryImages.MeshInstanceIdx, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
             renderInfo.GetImageLayoutCache().Set(mHistoryImages.Normal, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            renderInfo.GetImageLayoutCache().Set(mHistoryImages.Positions, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         }
 
         uint32_t                frameIdx = renderInfo.GetFrameNumber();
@@ -168,7 +171,7 @@ namespace foray::asvgf {
 
     void ASvgfDenoiserStage::CopyToHistory(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo)
     {
-        std::vector<util::HistoryImage*> historyImages{&mHistoryImages.LinearZ, &mHistoryImages.MeshInstanceIdx, &mHistoryImages.Normal, &mHistoryImages.PrimaryInput};
+        std::vector<util::HistoryImage*> historyImages{&mHistoryImages.LinearZ, &mHistoryImages.MeshInstanceIdx, &mHistoryImages.Normal, &mHistoryImages.PrimaryInput, &mHistoryImages.Positions};
 
         util::HistoryImage::sMultiCopySourceToHistory(historyImages, cmdBuffer, renderInfo);
     }
@@ -252,7 +255,7 @@ namespace foray::asvgf {
             }
         }
 
-        std::vector<util::HistoryImage*> historyImages{&mHistoryImages.LinearZ, &mHistoryImages.MeshInstanceIdx, &mHistoryImages.Normal, &mHistoryImages.PrimaryInput};
+        std::vector<util::HistoryImage*> historyImages{&mHistoryImages.LinearZ, &mHistoryImages.MeshInstanceIdx, &mHistoryImages.Normal, &mHistoryImages.PrimaryInput, &mHistoryImages.Positions};
 
         for(util::HistoryImage* image : historyImages)
         {
@@ -289,7 +292,7 @@ namespace foray::asvgf {
             image->Destroy();
         }
 
-        std::vector<util::HistoryImage*> historyImages({&(mHistoryImages.PrimaryInput), &(mHistoryImages.LinearZ), &(mHistoryImages.MeshInstanceIdx), &(mHistoryImages.Normal)});
+        std::vector<util::HistoryImage*> historyImages({&(mHistoryImages.PrimaryInput), &(mHistoryImages.LinearZ), &(mHistoryImages.MeshInstanceIdx), &(mHistoryImages.Normal), &(mHistoryImages.Positions)});
 
         for(util::HistoryImage* image : historyImages)
         {

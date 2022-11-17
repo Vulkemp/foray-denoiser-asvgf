@@ -5,9 +5,9 @@
 #include "foray_asvgf_creategradientsamples.hpp"
 #include "foray_asvgf_estimatevariance.hpp"
 #include "foray_asvgf_temporalaccumulation.hpp"
+#include "shaders/debug.glsl.h"
 #include <stages/foray_denoiserstage.hpp>
 #include <util/foray_historyimage.hpp>
-#include "shaders/debug.glsl.h"
 
 namespace foray::asvgf {
     class ASvgfDenoiserStage : public foray::stages::DenoiserStage
@@ -46,6 +46,7 @@ namespace foray::asvgf {
             core::ManagedImage* LinearZ         = nullptr;
             core::ManagedImage* Motion          = nullptr;
             core::ManagedImage* MeshInstanceIdx = nullptr;
+            core::ManagedImage* Positions       = nullptr;
         } mInputs;
 
         struct
@@ -53,7 +54,7 @@ namespace foray::asvgf {
             core::ManagedImage LuminanceMaxDiff;
             core::ManagedImage MomentsAndLinearZ;
             core::ManagedImage Seed;
-            uint32_t LastArrayWriteIdx = 0;
+            uint32_t           LastArrayWriteIdx = 0;
         } mASvgfImages;
 
         struct
@@ -62,7 +63,8 @@ namespace foray::asvgf {
             util::HistoryImage LinearZ;
             util::HistoryImage MeshInstanceIdx;
             util::HistoryImage Normal;
-            bool Valid = false;
+            util::HistoryImage Positions;
+            bool               Valid = false;
         } mHistoryImages;
 
         struct
@@ -70,14 +72,14 @@ namespace foray::asvgf {
             core::ManagedImage Color;
             core::ManagedImage Moments;
             core::ManagedImage HistoryLength;
-            uint32_t LastArrayWriteIdx = 0;
+            uint32_t           LastArrayWriteIdx = 0;
         } mAccumulatedImages;
 
         core::ManagedImage mATrousImage;
-        uint32_t mATrousLastArrayWriteIdx = 0;
-        
+        uint32_t           mATrousLastArrayWriteIdx = 0;
+
         core::ManagedImage* mPrimaryOutput = nullptr;
-        uint32_t mDebugMode = DEBUG_NONE;
+        uint32_t            mDebugMode     = DEBUG_NONE;
 
         bench::DeviceBenchmark* mBenchmark = nullptr;
 
@@ -90,10 +92,10 @@ namespace foray::asvgf {
         bool mInitialized = false;
 
         inline static const char* TIMESTAMP_CreateGradientSamples = "CreateGradientSamples";
-        inline static const char* TIMESTAMP_ATrousGradient = "ATrousGradient";
-        inline static const char* TIMESTAMP_TemporalAccumulation = "TemporalAccumulation";
-        inline static const char* TIMESTAMP_EstimateVariance = "EstimateVariance";
-        inline static const char* TIMESTAMP_ATrousColor = "ATrousColor";
+        inline static const char* TIMESTAMP_ATrousGradient        = "ATrousGradient";
+        inline static const char* TIMESTAMP_TemporalAccumulation  = "TemporalAccumulation";
+        inline static const char* TIMESTAMP_EstimateVariance      = "EstimateVariance";
+        inline static const char* TIMESTAMP_ATrousColor           = "ATrousColor";
 
         VkExtent2D CalculateStrataCount(const VkExtent2D& extent);
 
