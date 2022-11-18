@@ -107,9 +107,13 @@ void main() {
     { // Read history data w/ bilinear interpolation
     	for(int y = 0; y <= 1; y++) {
     		for(int x = 0; x <= 1; x++) {
+                // current position
     			ivec2 samplePos    = ivec2(prevTexel + ivec2(x, y));
+                // load previous Position
     			vec3 prevPosition    = imageLoad(HistoryGbufferPositions, samplePos).xyz;
+                // load previous Normal
     			vec3  prevNormal   = imageLoad(HistoryGbufferNormals, samplePos).rgb;
+                // load Mesh ID
     			uint prevMeshInstanceIdx  = imageLoad(HistoryGbufferMeshInstanceIdx, samplePos).x;
 
     			bool accept = true;
@@ -121,9 +125,13 @@ void main() {
     			if(accept) {
     				float weight = (x == 0 ? (1.0 - prevPosSubPixel.x) : prevPosSubPixel.x)
     					    * (y == 0 ? (1.0 - prevPosSubPixel.y) : prevPosSubPixel.y); // bilinear weight
+                    // Accumulate Color
     				prevColor   += imageLoad(AccumulatedColor, ivec3(samplePos, PushC.ReadIdx)).rgb * weight;
+                    // Accumulate Moments
     				prevMoments += imageLoad(AccumulatedMoments, ivec3(samplePos, PushC.ReadIdx)).rg * weight;
+                    // Accumulate History
     				historyLength += imageLoad(AccumulatedHistoryLength, ivec3(samplePos, PushC.ReadIdx)).r * weight;
+                    // Accumulate Weights
     				summedWeight += weight;
     			}
     		}
@@ -131,25 +139,29 @@ void main() {
     }
 
 
-    // TODO: Implement Antilag
+    // Antilag = deletes history if the luminance is to different from the previous frame
     float antilagAlpha = 0.f;
     {
-        const int gradientFilterRadius = 2;
+        const int gradientFilterKernel = 2;
 
-        for(int y = -gradientFilterRadius; y <= gradientFilterRadius; y++) {
-			for(int x = -gradientFilterRadius; x <= gradientFilterRadius; x++) {
+        for(int y = -gradientFilterKernel; y <= gradientFilterKernel; y++) {
+			for(int x = -gradientFilterKernel; x <= gradientFilterKernel; x++) {
+                // get current positon
                 ivec3 samplePos = ivec3(currTexel / STRATASIZE + ivec2(x, y), PushC.LuminanceMaxDiffReadIdx);
+                // load luminanceMaxDiff
                 vec2 luminanceMaxDiff = imageLoad(LuminanceMaxDiff, samplePos).rg;
+                // Maximal luminance from current and previous frame
                 float lumMax = luminanceMaxDiff.r;
+                // Luminance differance from the current and the previous frame
                 float lumDiff = luminanceMaxDiff.g;
-
-				float a = clamp(abs(lumMax > 1e-4 ? abs(lumDiff) / lumMax : 0.0), 0.0, 200.0);
-
-				antilagAlpha = max(antilagAlpha, a);
+                // Normalize current lumiance between 0 and 200
+				float lumNorm = clamp(abs(lumMax > 1e-4 ? abs(lumDiff) / lumMax : 0.0), 0.0, 200.0);
+                // store the largest antilagAlpha for this kernel
+				antilagAlpha = max(antilagAlpha, lumNorm);
 			}
 		}
     }
-
+    // clamp antilagAlpha between 0 and 1
     clamp(antilagAlpha, 0.0, 1.0);
 	if(isnan(antilagAlpha))
     {
@@ -160,23 +172,35 @@ void main() {
     if (summedWeight > PushC.WeightThreshhold)
     {
         // Alpha values: [0...1], where 0 == only history data, 1 == only new data
+        // Calculate mean for Colors
         prevColor /= summedWeight;
+        // Calculate mean for Moments
         prevMoments /= summedWeight;
+        // Calculate mean for History
         historyLength /= summedWeight;
         
+        // Temporal accumulation factor a alpha for drop stale history information
+
         float rawHistoryAlpha = 1.f / (historyLength + 1.f);
         float colorAlpha = max(PushC.MinNewDataWeight, rawHistoryAlpha);
         float momentsAlpha = max(0.6, rawHistoryAlpha);
 
+        // Mix colors with Antilag
+
         colorAlpha = mix(colorAlpha, 1.0, antilagAlpha);
         momentsAlpha = mix(momentsAlpha, 1.0, antilagAlpha);
 
+        // Mix everything together and store the images
+
         vec4 accuColorPlusHistlen = vec4(mix(prevColor, currColor, colorAlpha), historyLength + 1.f);
         imageStore(AccumulatedColor, ivec3(currTexel, PushC.WriteIdx), accuColorPlusHistlen);
+
         vec4 accuMoments = vec4(mix(prevMoments, currMoments, momentsAlpha), 0, 0);
         imageStore(AccumulatedMoments, ivec3(currTexel, PushC.WriteIdx), accuMoments);
+
         historyLength = min(64, historyLength + 1.f);
         imageStore(AccumulatedHistoryLength, ivec3(currTexel, PushC.WriteIdx), vec4(historyLength, 0, 0, 0));
+
         if (PushC.DebugMode == DEBUG_TEMPACCU_OUTPUT)
         {
             imageStore(DebugOutput, currTexel, vec4(mix(prevColor, currColor, colorAlpha), 1.f));
@@ -186,6 +210,7 @@ void main() {
             imageStore(DebugOutput, currTexel, vec4(colorAlpha, momentsAlpha, 0.f, 1.f));
         }
     }
+    // If weight is to small dont mix the colors
     else
     {
         imageStore(AccumulatedColor, ivec3(currTexel, PushC.WriteIdx), vec4(currColor, 1.f));

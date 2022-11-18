@@ -38,7 +38,9 @@ struct RefPixelInfo
     ivec2 TexelPos;
     // Step size of the expanding filter
     int StepSize;
+    // Color
     vec4 Color;
+    // Normals
     vec3 Normal;
     // Center pixel linear z + linear z gradient
     vec2 LinearZ;
@@ -91,7 +93,7 @@ void tap(in ivec2 offset, in float kernelWeight, in RefPixelInfo ref, inout Sums
 
 #include "kernel_shared.glsl"
 
-// TODO HopeSuffers : Add comments
+// calculate sigma luminance for the edge stopping function
 float calcSigmaLuminance(float luminanceVariance, ivec2 texelPos)
 {
     const float gaussian_kernel[3][3] = {
@@ -102,6 +104,7 @@ float calcSigmaLuminance(float luminanceVariance, ivec2 texelPos)
 
 	float sum = luminanceVariance * gaussian_kernel[1][1];
 
+    // calculate the luminance over the kernel
 	const int kernel = 1;
 	for(int y = -kernel; y <= kernel; y++) {
 		for(int x = -kernel; x <= kernel; x++) {
@@ -182,8 +185,6 @@ void main() {
     }
     else if (PushC.DebugMode == DEBUG_NONE)
     {
-        // TODO Remodulate Albedo
-        // sums.Color *= imageLoad(GbufferAlbedo, texelPos).rgb;
         imageStore(OutputImage, texelPos, vec4(sums.Color, 1));
     }
 }

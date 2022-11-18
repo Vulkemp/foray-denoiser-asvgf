@@ -36,72 +36,83 @@ layout(push_constant) uniform push_constant_t
 } PushC;
 
 void main(){
-
+	// Current position
     ivec2 currPos = ivec2(gl_GlobalInvocationID.xy);
-
-    vec2 moments = imageLoad(AccumulatedMoments, ivec3(currPos, PushC.ReadIdx)).xy;
-
+	//AccumulatedMoments Moments on current position
+    vec2 accumulatedMoments = imageLoad(AccumulatedMoments, ivec3(currPos, PushC.ReadIdx)).xy;
+	// HistoryLenth on current Position
     float historyLength = imageLoad(AccumulatedHistoryLength, ivec3(currPos, PushC.ReadIdx)).r;
-
+	// AccumulatedColors on current position
     vec4 accumulatedColor = imageLoad(AccumulatedColor, ivec3(currPos, PushC.ReadIdx));
-
+	// Depth value
     vec4 linearZ = imageLoad(GbufferLinearZ, currPos);
 
+	// Check if LinearZ is negative (Comes from the Paper, we are not sure how the depth should get negative)
 	if(linearZ.x < 0) 
-	{ 
-		// TODO: Why does this need to be escaped? LinearZ should never be a negative value
+	{ 	
 	    imageStore(ColorTemporalVariance, ivec3(currPos, PushC.WriteIdx), vec4(accumulatedColor.rgb, 0));
 	    return;
     }
 
-    if(historyLength < PushC.HistoryLengthThreshold) {
-    		// for short history, gain information from surrounding pixels
+    if(historyLength < PushC.HistoryLengthThreshold) 
+	{
 
+    	// for short history, gain information from surrounding pixels
     	{ 
     		float luminance = calcLuminance(accumulatedColor.rgb);
-    		moments += vec2(luminance, luminance * luminance);
+    		accumulatedMoments += vec2(luminance, luminance * luminance);
     	}
 
+		// Normals on current position
     	vec3 normal = imageLoad(GbufferNormals, currPos).xyz;
+		// Mesh id on current position
     	uint meshInstanceIdx =  imageLoad(GbufferMeshInstanceIdx, currPos).r;
 
-		float sumWeight = 1.0; // TODO: Check if this should 2.0
+		float sumWeight = 1.0;
 		const int kernel = historyLength > 1 ? 2 : 3; // use a bigger kernel if no history present
+
+		// Accumulate the moments and the color on current position with kernel
 		for(int y = -kernel; y <= kernel; y++) {
 			for(int x = -kernel; x <= kernel; x++) {
 				if(x != 0 || y != 0) {
+					// current position
 					ivec2 samplePos = currPos + ivec2(x, y);
+					// Load the accumulated color on current position
 					vec3 sampleAccumulatedColor = imageLoad(AccumulatedColor, ivec3(samplePos, PushC.ReadIdx)).rgb;
-
+					// calculate Luminance from the accumulated color
     				float luminance = calcLuminance(sampleAccumulatedColor.rgb);
-
+					// load depth
    					float sampleLinearZ = imageLoad(GbufferLinearZ, samplePos).x;
+					// load normal
    					vec3 sampleNormal = imageLoad(GbufferNormals, samplePos).xyz;
-
+					// calculate the weight for depth
    					float weightLinearZ = abs(sampleLinearZ - linearZ.x) / (linearZ.y * length(vec2(x, y)) + 1e-2);
+					// calculate the weight for normal
                     float weightNormal = pow(max(0, dot(sampleNormal, normal)), 128.0); 
-
+					// get current Mesh Id
   					uint meshInstanceIdxPos =  imageLoad(GbufferMeshInstanceIdx, samplePos).r;
-
+					// calculate the final weight
    					float weight = exp(- weightLinearZ) * weightNormal * (meshInstanceIdx == meshInstanceIdxPos ? 1.0 : 0.0);
-
    					if(isnan(weight))
 					{
    						weight = 0.0;
 					}
-
+					// Accumulate sum of all weights
    					sumWeight += weight;
-
-   					moments += vec2(luminance, luminance * luminance) * weight;
+					// Accumulate moments
+   					accumulatedMoments += vec2(luminance, luminance * luminance) * weight;
+					// Accumulate Color
    					accumulatedColor.rgb += sampleAccumulatedColor * weight;
    				}
    			}
    		}
 
-   		moments /= sumWeight;
+		// calculate the mean of accumulated moments
+   		accumulatedMoments /= sumWeight;
+		// calculate the mean of accumulated color
    		accumulatedColor.rgb /= sumWeight;
-
-		float temporalVariance = (1.0 + 3.0 * (1.0 - historyLength / PushC.HistoryLengthThreshold)) * max(0.0, moments.y - moments.x * moments.x);
+		// calculate Variance 
+		float temporalVariance = (1.0 + 3.0 * (1.0 - historyLength / PushC.HistoryLengthThreshold)) * max(0.0, accumulatedMoments.y - accumulatedMoments.x * accumulatedMoments.x);
     
 	    imageStore(ColorTemporalVariance, ivec3(currPos, PushC.WriteIdx), vec4(accumulatedColor.rgb, temporalVariance));
 		if (PushC.DebugMode == DEBUG_ESTVAR_VARIANCE)
@@ -110,7 +121,8 @@ void main(){
 		}
     }
     else {
-    	float temporalVariance = max(0.0, moments.y - moments.x * moments.x);
+		// calculate Variance for shorter history
+    	float temporalVariance = max(0.0, accumulatedMoments.y - accumulatedMoments.x * accumulatedMoments.x);
     	imageStore(ColorTemporalVariance, ivec3(currPos, PushC.WriteIdx), vec4(accumulatedColor.rgb, temporalVariance));
 		if (PushC.DebugMode == DEBUG_ESTVAR_VARIANCE)
 		{
