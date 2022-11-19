@@ -11,8 +11,8 @@ namespace foray::asvgf {
 
     void CreateGradientSamplesStage::ApiInitShader()
     {
-        mShader.LoadFromSource(mContext, SHADER_DIR "/creategradientsamples.comp");
-        mShaderSourcePaths.push_back(SHADER_DIR "/creategradientsamples.comp");
+        mShader.LoadFromSource(mContext, ASVGF_SHADER_DIR "/creategradientsamples.comp");
+        mShaderSourcePaths.push_back(ASVGF_SHADER_DIR "/creategradientsamples.comp");
     }
     void CreateGradientSamplesStage::ApiCreateDescriptorSet()
     {

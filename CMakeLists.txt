@@ -35,4 +35,4 @@ target_include_directories(
 	PUBLIC ${Vulkan_INCLUDE_DIRS}
 )
 
-target_compile_options(${PROJECT_NAME} PUBLIC "-DSHADER_DIR=\"${CMAKE_CURRENT_LIST_DIR}/src/shaders\"")
+target_compile_options(${PROJECT_NAME} PUBLIC "-DASVGF_SHADER_DIR=\"${CMAKE_CURRENT_LIST_DIR}/src/shaders\"")

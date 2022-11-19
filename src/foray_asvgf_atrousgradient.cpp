@@ -11,8 +11,8 @@ namespace foray::asvgf {
 
     void ATrousGradientStage::ApiInitShader()
     {
-        mShader.LoadFromSource(mContext, SHADER_DIR "/atrousgradient.comp");
-        mShaderSourcePaths.push_back(SHADER_DIR "/atrousgradient.comp");
+        mShader.LoadFromSource(mContext, ASVGF_SHADER_DIR "/atrousgradient.comp");
+        mShaderSourcePaths.push_back(ASVGF_SHADER_DIR "/atrousgradient.comp");
     }
     void ATrousGradientStage::ApiCreateDescriptorSet()
     {

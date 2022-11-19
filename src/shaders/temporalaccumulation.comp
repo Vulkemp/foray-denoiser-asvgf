@@ -43,15 +43,18 @@ layout(push_constant) uniform push_constant_t
     // Write array index
     uint WriteIdx;
     // Maximum deviation of the sinus of previous and current normal (Default 0.05)
-    float MaxPositionDifference;
+    float MaxNormalDeviation;
     // Deviation multiplier (Default 1.0)
-    float DepthDeviationToleranceMultiplier; // TODO Fix me
+    float MaxPositionDifference;
     // Combined Weight Threshhold (Default 0.01)
     float WeightThreshhold;
     // Minimum weight assigned to new data
     float MinNewDataWeight;
+    // Array ReadIdx of LuminanceMaxDiffTex
     uint LuminanceMaxDiffReadIdx;
+    // Set to true to enable use of historic data
     uint EnableHistory;
+    // Set to a non-zero value to enable debug outputs
     uint DebugMode;
 } PushC;
 
@@ -62,7 +65,7 @@ bool testInsideScreen(in ivec2 samplePos, in ivec2 renderSize)
 
 bool testNormalDeviation(in vec3 currNormal, in vec3 prevNormal)
 {
-    return (1 - dot(currNormal, prevNormal)) <= PushC.MaxPositionDifference; // TODO Fix me
+    return (1 - dot(currNormal, prevNormal)) <= PushC.MaxNormalDeviation; // TODO Fix me
 }
 
 bool testPositions(in vec3 currPositions, in vec3 prevPositions)
