@@ -45,7 +45,7 @@ layout(push_constant) uniform push_constant_t
     // Maximum deviation of the sinus of previous and current normal (Default 0.05)
     float MaxPositionDifference;
     // Deviation multiplier (Default 1.0)
-    float DepthDeviationToleranceMultiplier;
+    float DepthDeviationToleranceMultiplier; // TODO Fix me
     // Combined Weight Threshhold (Default 0.01)
     float WeightThreshhold;
     // Minimum weight assigned to new data
@@ -62,7 +62,7 @@ bool testInsideScreen(in ivec2 samplePos, in ivec2 renderSize)
 
 bool testNormalDeviation(in vec3 currNormal, in vec3 prevNormal)
 {
-    return (1 - dot(currNormal, prevNormal)) <= PushC.MaxPositionDifference;
+    return (1 - dot(currNormal, prevNormal)) <= PushC.MaxPositionDifference; // TODO Fix me
 }
 
 bool testPositions(in vec3 currPositions, in vec3 prevPositions)
