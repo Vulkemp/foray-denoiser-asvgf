@@ -50,6 +50,8 @@ layout(push_constant) uniform push_constant_t
     float WeightThreshhold;
     // Minimum weight assigned to new data
     float MinNewDataWeight;
+    // Multiplier to apply to the antilag alpha
+    float AntilagMultiplier;
     // Array ReadIdx of LuminanceMaxDiffTex
     uint LuminanceMaxDiffReadIdx;
     // Set to true to enable use of historic data
@@ -164,13 +166,15 @@ void main() {
 			}
 		}
     }
+
+    antilagAlpha *= PushC.AntilagMultiplier;
+
     // clamp antilagAlpha between 0 and 1
-    clamp(antilagAlpha, 0.0, 1.0);
+    antilagAlpha = clamp(antilagAlpha, 0.0, 1.0);
 	if(isnan(antilagAlpha))
     {
 		antilagAlpha = 1.0;
     }
-
 
     if (summedWeight > PushC.WeightThreshhold)
     {

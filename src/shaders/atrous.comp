@@ -27,7 +27,7 @@ layout(push_constant) uniform push_constant_t
     uint ReadIdx;
     uint WriteIdx;
     uint LastIteration;
-    uint UsedKernel;
+    uint KernelMode;
     uint DebugMode;
 } PushC;
 
@@ -151,28 +151,9 @@ void main() {
 
     // Dispatch Atrous box filter
 
-    if(PushC.UsedKernel == 0) {
-        box3(ref, sums);
-    }
-
-    else if(PushC.UsedKernel == 1) {
-        box5(ref, sums);
-    }
-
-    else if(PushC.UsedKernel == 2) {
-        atrous(ref, sums);
-    }
-
-    else if(PushC.UsedKernel == 3) {
-        subsampled(ref, sums);
-    }
+    kernel(ref, sums, PushC.KernelMode);
 
     // Calculate weighted average
-
-    if (PushC.DebugMode == DEBUG_VARIO)
-    {
-        imageStore(OutputImage, texelPos, vec4(ref.SigmaLuminance * 10000, 0, 0, 1));
-    }
 
     sums.Color /= sums.Weight;
     sums.Variance /= sums.Weight * sums.Weight;

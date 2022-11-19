@@ -21,6 +21,7 @@ layout(push_constant) uniform push_constant_t
     uint IterationIdx;
     uint ReadIdx;
     uint WriteIdx;
+    uint KernelMode;
     uint DebugMode;
 } PushC;
 
@@ -138,7 +139,7 @@ void main()
 
     // Dispatch Atrous box filter
 
-    box3(ref, sums);
+    kernel(ref, sums, PushC.KernelMode);
 
     // Calculate weighted average
 
@@ -151,11 +152,11 @@ void main()
     imageStore(LuminanceMaxDiff, ivec3(texelPos, PushC.WriteIdx), vec4(sums.LuminanceMaxDiff, 0, 0));
     imageStore(MomentsAndLinearZ, ivec3(texelPos, PushC.WriteIdx), vec4(sums.Luminance, sums.Variance, momentsAndLinearZ.ba));
 
-    if (PushC.DebugMode == DEBUG_GSATROUS_RESERVED0)
+    if (PushC.DebugMode == DEBUG_GSATROUS_LUMMAXDIFF)
     {
         DebugStoreStrata(texelPos, vec4(sums.LuminanceMaxDiff, 0, 1));
     }
-    if (PushC.DebugMode == DEBUG_GSATROUS_RESERVED1)
+    if (PushC.DebugMode == DEBUG_GSATROUS_SIGMALUM)
     {
         DebugStoreStrata(texelPos, vec4(ref.SigmaLuminance * 50, 0, 0, 1));
     }

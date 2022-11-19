@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stages/foray_computestage.hpp>
+#include "shaders/kernel_shared.glsl"
 
 namespace foray::asvgf {
     class ASvgfDenoiserStage;
@@ -21,6 +22,7 @@ namespace foray::asvgf {
             uint32_t IterationIdx;
             uint32_t ReadIdx;
             uint32_t WriteIdx;
+            uint32_t KernelMode = KERNEL_BOX3;
             uint32_t DebugMode = 0;
         } mPushC;
 

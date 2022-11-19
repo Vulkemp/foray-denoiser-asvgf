@@ -122,14 +122,13 @@ namespace foray::asvgf {
 
     void TemporalAccumulationStage::ApiBeforeDispatch(VkCommandBuffer cmdBuffer, base::FrameRenderInfo& renderInfo, glm::uvec3& groupSize)
     {
-        PushConstant pushC                                = PushConstant();
-        pushC.ReadIdx                                     = renderInfo.GetFrameNumber() % 2;
-        pushC.WriteIdx                                    = (renderInfo.GetFrameNumber() + 1) % 2;
-        pushC.LuminanceMaxDiffReadIdx                     = mASvgfStage->mASvgfImages.LastArrayWriteIdx;
-        pushC.EnableHistory                               = mASvgfStage->mHistoryImages.Valid;
-        pushC.DebugOutputMode                             = mASvgfStage->mDebugMode;
-        mASvgfStage->mAccumulatedImages.LastArrayWriteIdx = pushC.WriteIdx;
-        vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushC), &pushC);
+        mPushC.ReadIdx                                     = renderInfo.GetFrameNumber() % 2;
+        mPushC.WriteIdx                                    = (renderInfo.GetFrameNumber() + 1) % 2;
+        mPushC.LuminanceMaxDiffReadIdx                     = mASvgfStage->mASvgfImages.LastArrayWriteIdx;
+        mPushC.EnableHistory                               = mASvgfStage->mHistoryImages.Valid;
+        mPushC.DebugOutputMode                             = mASvgfStage->mDebugMode;
+        mASvgfStage->mAccumulatedImages.LastArrayWriteIdx = mPushC.WriteIdx;
+        vkCmdPushConstants(cmdBuffer, mPipelineLayout, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(mPushC), &mPushC);
 
         VkExtent3D size = mASvgfStage->mInputs.PrimaryInput->GetExtent3D();
 

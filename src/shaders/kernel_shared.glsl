@@ -1,3 +1,22 @@
+#ifndef ASVGF_KERNEL_GLSL
+#define ASVGF_KERNEL_GLSL
+
+#ifdef __cplusplus
+
+namespace foray::asvgf
+{
+    using uint = uint32_t;
+#endif // __cplusplus
+	const uint KERNEL_BOX3 = 0U;
+	const uint KERNEL_BOX5 = 1U;
+	const uint KERNEL_ATROUS = 2U;
+	const uint KERNEL_SUBSAMPLED = 3U;
+
+
+#ifdef __cplusplus
+} // namespace foray::asvgf
+#else
+
 // 3x3 Box kernel
 void box3(in RefPixelInfo ref, inout Sums sums)
 {
@@ -101,3 +120,23 @@ void subsampled(in RefPixelInfo ref, inout Sums sums)
 	tap(ivec2(-1, -1) * ref.StepSize, 1.0, ref, sums);
 	tap(ivec2( 1, -1) * ref.StepSize, 1.0, ref, sums);
 }
+
+void kernel(in RefPixelInfo ref, inout Sums sums, in uint KernelMode)
+{
+    if(KernelMode == KERNEL_BOX3) {
+        box3(ref, sums);
+    }
+    else if(KernelMode == KERNEL_BOX5) {
+        box5(ref, sums);
+    }
+    else if(KernelMode == KERNEL_ATROUS) {
+        atrous(ref, sums);
+    }
+    else if(KernelMode == KERNEL_SUBSAMPLED) {
+        subsampled(ref, sums);
+    }
+}
+
+#endif // __cplusplus
+
+#endif // ASVGF_KERNEL_GLSL
