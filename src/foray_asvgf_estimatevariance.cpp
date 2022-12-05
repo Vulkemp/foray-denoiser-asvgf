@@ -11,8 +11,7 @@ namespace foray::asvgf {
 
     void EstimateVarianceStage::ApiInitShader()
     {
-        mShader.LoadFromSource(mContext, ASVGF_SHADER_DIR "/estimatevariance.comp");
-        mShaderSourcePaths.push_back(ASVGF_SHADER_DIR "/estimatevariance.comp");
+        mShaderKeys.push_back(mShader.CompileFromSource(mContext, ASVGF_SHADER_DIR "/estimatevariance.comp"));
     }
     void EstimateVarianceStage::ApiCreateDescriptorSet()
     {

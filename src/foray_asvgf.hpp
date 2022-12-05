@@ -31,7 +31,7 @@ namespace foray::asvgf {
 
         virtual void Resize(const VkExtent2D& extent) override;
 
-        virtual void OnShadersRecompiled() override;
+        virtual void OnShadersRecompiled(const std::unordered_set<uint64_t>& recompiled) override;
 
         virtual void Destroy() override;
 

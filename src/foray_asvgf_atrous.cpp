@@ -11,8 +11,7 @@ namespace foray::asvgf {
 
     void ATrousStage::ApiInitShader()
     {
-        mShader.LoadFromSource(mContext, ASVGF_SHADER_DIR "/atrous.comp");
-        mShaderSourcePaths.push_back(ASVGF_SHADER_DIR "/atrous.comp");
+        mShaderKeys.push_back(mShader.CompileFromSource(mContext, ASVGF_SHADER_DIR "/atrous.comp"));
     }
     void ATrousStage::ApiCreateDescriptorSet()
     {

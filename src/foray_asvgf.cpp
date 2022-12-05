@@ -333,13 +333,13 @@ void ASvgfDenoiserStage::Resize(const VkExtent2D& extent)
     mAtrousStage.UpdateDescriptorSet();
 }
 
-void ASvgfDenoiserStage::OnShadersRecompiled()
+void ASvgfDenoiserStage::OnShadersRecompiled(const std::unordered_set<uint64_t>& recompiled)
 {
-    mCreateGradientSamplesStage.OnShadersRecompiled();
-    mAtrousGradientStage.OnShadersRecompiled();
-    mTemporalAccumulationStage.OnShadersRecompiled();
-    mEstimateVarianceStage.OnShadersRecompiled();
-    mAtrousStage.OnShadersRecompiled();
+    mCreateGradientSamplesStage.OnShadersRecompiled(recompiled);
+    mAtrousGradientStage.OnShadersRecompiled(recompiled);
+    mTemporalAccumulationStage.OnShadersRecompiled(recompiled);
+    mEstimateVarianceStage.OnShadersRecompiled(recompiled);
+    mAtrousStage.OnShadersRecompiled(recompiled);
 }
 
 void ASvgfDenoiserStage::Destroy()

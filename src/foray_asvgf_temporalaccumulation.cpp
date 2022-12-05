@@ -11,8 +11,7 @@ namespace foray::asvgf {
 
     void TemporalAccumulationStage::ApiInitShader()
     {
-        mShader.LoadFromSource(mContext, ASVGF_SHADER_DIR "/temporalaccumulation.comp");
-        mShaderSourcePaths.push_back(ASVGF_SHADER_DIR "/temporalaccumulation.comp");
+        mShaderKeys.push_back(mShader.CompileFromSource(mContext, ASVGF_SHADER_DIR ""));
     }
     void TemporalAccumulationStage::ApiCreateDescriptorSet()
     {
