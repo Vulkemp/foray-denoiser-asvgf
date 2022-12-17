@@ -6,7 +6,7 @@
 namespace foray::asvgf {
     class ASvgfDenoiserStage;
 
-    class ATrousGradientStage : public foray::stages::ComputeStage
+    class ATrousGradientStage : public foray::stages::ComputeStageBase
     {
         friend ASvgfDenoiserStage;
         public:

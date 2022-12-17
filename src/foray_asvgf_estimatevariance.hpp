@@ -5,7 +5,7 @@
 namespace foray::asvgf {
     class ASvgfDenoiserStage;
 
-    class EstimateVarianceStage : public foray::stages::ComputeStage
+    class EstimateVarianceStage : public foray::stages::ComputeStageBase
     {
       public:
         void Init(ASvgfDenoiserStage* aSvgfStage);

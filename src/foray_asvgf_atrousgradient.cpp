@@ -6,7 +6,7 @@ namespace foray::asvgf {
     {
         Destroy();
         mASvgfStage = aSvgfStage;
-        stages::ComputeStage::Init(mASvgfStage->mContext);
+        stages::ComputeStageBase::Init(mASvgfStage->mContext);
     }
 
     void ATrousGradientStage::ApiInitShader()
